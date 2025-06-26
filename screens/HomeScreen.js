@@ -32,8 +32,8 @@ export default function HomeScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="#e0f2fe" />
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.headerBox}>
-          <Text style={styles.heading}>Spartan Pathak</Text>
-          <Text style={styles.subHeading}>Dhol Tasha Lezim Pathak - Bay Area</Text>
+          <Text style={styles.heading}>MMBA Spartans</Text>
+          <Text style={styles.subHeading}>Dhol Tasha Dhwaj Pathak - Bay Area</Text>
         </View>
 
         <Section title="About Us">
