@@ -9,6 +9,7 @@ import ManualEntryScreen from '../screens/ManualEntryScreen';
 import AttendanceViewScreen from '../screens/AttendanceViewScreen';
 import ResetDevice from '../screens/ResetDevice';
 import RebindRequests from '../screens/RebindRequests';
+import SessionDataScreen from '../screens/SessionDataScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -24,6 +25,7 @@ export default function AppNavigator() {
         <Stack.Screen name="AttendanceView" component={AttendanceViewScreen} />
         <Stack.Screen name="ResetDevice" component={ResetDevice} />
         <Stack.Screen name="RebindRequests" component={RebindRequests} />
+        <Stack.Screen name="SessionDataScreen" component={SessionDataScreen} />
     </Stack.Navigator>
 
   );

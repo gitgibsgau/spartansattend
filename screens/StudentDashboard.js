@@ -11,6 +11,7 @@ import { auth, db } from '../firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/Ionicons';
+import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 
 export default function StudentDashboard({ navigation }) {
   const [name, setName] = useState('');
@@ -21,8 +22,8 @@ export default function StudentDashboard({ navigation }) {
         const userRef = doc(db, 'users', auth.currentUser.uid);
         const userSnap = await getDoc(userRef);
         if (userSnap.exists()) {
-          const email = userSnap.data().email;
-          setName(email.split('@')[0]);
+          const fullname = userSnap.data().fullname;
+          setName(fullname);
         }
       } catch (err) {
         console.log("Failed to fetch user:", err);
@@ -67,7 +68,7 @@ export default function StudentDashboard({ navigation }) {
       Alert.alert("Error", err.message);
     }
   };
-  
+
 
   const Card = ({ title, iconName, onPress }) => (
     <TouchableOpacity onPress={onPress} style={styles.card}>
@@ -77,7 +78,7 @@ export default function StudentDashboard({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
+    <AppBackgroundWrapper>
       {/* Main centered content */}
       <View style={styles.contentWrapper}>
         <Animatable.Text animation="fadeInDown" style={styles.title}>
@@ -117,21 +118,17 @@ export default function StudentDashboard({ navigation }) {
           <Text style={styles.logoutText}>Logout</Text>
         </TouchableOpacity>
       </View>
-    </View>
+    </AppBackgroundWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#1e3a8a', // Spartan blue
-  },
   contentWrapper: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 60,
+    paddingTop: 150,
   },
   title: {
     fontSize: 26,

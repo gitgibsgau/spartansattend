@@ -12,6 +12,7 @@ import {
 import { auth } from '../firebase';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
+import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 
 const db = getFirestore();
 
@@ -26,7 +27,7 @@ export default function AdminDashboard({ navigation }) {
         const snapshot = await getDocs(q);
         setPendingCount(snapshot.size);
       };
-  
+
       fetchPendingRebindRequests();
     }, [])
   );
@@ -55,9 +56,9 @@ export default function AdminDashboard({ navigation }) {
         <View style={{ position: 'relative', alignItems: 'center' }}>
           <Icon name={iconName} size={30} color="#4f46e5" />
           {title === "Device Rebind Requests" && pendingCount > 0 && (
-          <View style={styles.badge}>
-            <Text style={styles.badgeText}>{pendingCount}</Text>
-          </View>
+            <View style={styles.badge}>
+              <Text style={styles.badgeText}>{pendingCount}</Text>
+            </View>
           )}
         </View>
         <Text style={styles.cardText}>{title}</Text>
@@ -66,54 +67,55 @@ export default function AdminDashboard({ navigation }) {
   );
 
   return (
-    <View style={styles.container}>
-      <Animatable.Text animation="fadeInDown" style={styles.title}>
-        Admin Dashboard 🧑‍💼
-      </Animatable.Text>
+    <AppBackgroundWrapper>
+      <View style={styles.container}>
+        <Animatable.Text animation="fadeInDown" style={styles.title}>
+          Admin Dashboard 🧑‍💼
+        </Animatable.Text>
 
-      <ScrollView contentContainerStyle={styles.cardContainer} showsVerticalScrollIndicator={false}>
-        <Card
-          title="Generate QR for Session"
-          iconName="qr-code"
-          delay={200}
-          onPress={() => navigation.navigate('QRGenerator')}
-        />
-        <Card
-          title="View Attendance Records"
-          iconName="calendar"
-          delay={400}
-          onPress={() => navigation.navigate('AttendanceView')}
-        />
-        <Card
-          title="Reset Student Device ID"
-          iconName="refresh-circle"
-          delay={600}
-          onPress={() => navigation.navigate('ResetDevice')}
-        />
-        <Card
-          title="Device Rebind Requests"
-          iconName="help-circle"
-          delay={800}
-          onPress={() => navigation.navigate('RebindRequests')}
-        />
-      </ScrollView>
+        <ScrollView contentContainerStyle={styles.cardContainer} showsVerticalScrollIndicator={false}>
+          <Card
+            title="Generate QR for Session"
+            iconName="qr-code"
+            delay={200}
+            onPress={() => navigation.navigate('QRGenerator')}
+          />
+          <Card
+            title="View Attendance Records"
+            iconName="calendar"
+            delay={400}
+            onPress={() => navigation.navigate('AttendanceView')}
+          />
+          <Card
+            title="Reset Student Device ID"
+            iconName="refresh-circle"
+            delay={600}
+            onPress={() => navigation.navigate('ResetDevice')}
+          />
+          <Card
+            title="Device Rebind Requests"
+            iconName="help-circle"
+            delay={800}
+            onPress={() => navigation.navigate('RebindRequests')}
+          />
+        </ScrollView>
 
-      {/* Bottom-fixed logout */}
-      <View style={styles.logoutContainer}>
-        <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
-          <Icon name="log-out-outline" size={28} color="crimson" />
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+        {/* Bottom-fixed logout */}
+        <View style={styles.logoutContainer}>
+          <TouchableOpacity onPress={handleLogout} style={styles.logoutButton}>
+            <Icon name="log-out-outline" size={28} color="crimson" />
+            <Text style={styles.logoutText}>Logout</Text>
+          </TouchableOpacity>
+        </View>
       </View>
-    </View>
+    </AppBackgroundWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1e3a8a',
-    paddingTop: 60,
+    paddingTop: 150,
   },
   title: {
     fontSize: 24,
@@ -176,5 +178,5 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: 'bold',
-  },  
+  },
 });

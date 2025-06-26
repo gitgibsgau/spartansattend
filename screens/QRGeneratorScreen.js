@@ -14,6 +14,7 @@ import { db, auth } from '../firebase';
 import QRCodeDisplay from '../components/QRCodeDisplay';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/Ionicons';
+import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 
 const generateCode = (length = 6) => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -27,6 +28,8 @@ export default function QRGeneratorScreen() {
   const [loading, setLoading] = useState(false);
 
   const createSession = async () => {
+    if (loading) return;
+
     if (!title.trim()) {
       Alert.alert('Missing Title', 'Please enter a session title.');
       return;
@@ -40,63 +43,73 @@ export default function QRGeneratorScreen() {
         title: title.trim(),
         createdBy: auth.currentUser.uid,
         code,
-        timestamp: Timestamp.now()
+        timestamp: Timestamp.now(),
+        expiresAt: Timestamp.fromDate(new Date(Date.now() + 4 * 60 * 60 * 1000)) // 3 hours
       });
+
       setSessionId(docRef.id);
       setSessionCode(code);
-      Alert.alert('Success', 'Session created!');
+      setTitle(''); // Clear input on success
+      Alert.alert('Success 🎉', 'Session created successfully!');
     } catch (err) {
       console.error('Error creating session:', err);
-      Alert.alert('Error', 'Could not create session.');
+      Alert.alert('Error ❌', err?.message || 'Could not create session.');
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Animatable.Text animation="fadeInDown" style={styles.heading}>
-        Create New Attendance Session
-      </Animatable.Text>
+    <AppBackgroundWrapper>
+      <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+        <Animatable.Text animation="fadeInDown" style={styles.heading}>
+          Create New Attendance Session
+        </Animatable.Text>
 
-      <Animatable.View animation="fadeInUp" delay={100} style={styles.card}>
-        <Text style={styles.label}>Session Title</Text>
-        <TextInput
-          placeholder="e.g. Math Lecture 101"
-          value={title}
-          onChangeText={setTitle}
-          style={styles.input}
-        />
+        <Animatable.View animation="fadeInUp" delay={100} style={styles.card}>
+          <Text style={styles.label}>Session Title</Text>
+          <TextInput
+            placeholder="e.g. Math Lecture 101"
+            value={title}
+            onChangeText={setTitle}
+            style={styles.input}
+            placeholderTextColor="#94a3b8"
+          />
 
-        <TouchableOpacity style={styles.button} onPress={createSession} disabled={loading}>
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <>
-              <Icon name="qr-code-outline" size={20} color="#fff" />
-              <Text style={styles.buttonText}>Generate QR</Text>
-            </>
-          )}
-        </TouchableOpacity>
-      </Animatable.View>
-
-      {sessionId && (
-        <Animatable.View animation="fadeInUp" delay={300} style={styles.resultCard}>
-          <Text style={styles.resultTitle}>QR Code</Text>
-          <QRCodeDisplay data={sessionId} />
-          <Text style={styles.codeText}>
-            Manual Code: <Text style={styles.codeValue}>{sessionCode}</Text>
-          </Text>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={createSession}
+            disabled={loading}
+            accessibilityLabel="Generate QR code for this session"
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <>
+                <Icon name="qr-code-outline" size={20} color="#fff" />
+                <Text style={styles.buttonText}>Generate QR</Text>
+              </>
+            )}
+          </TouchableOpacity>
         </Animatable.View>
-      )}
-    </ScrollView>
+
+        {sessionId && (
+          <Animatable.View animation="fadeInUp" delay={300} style={styles.resultCard}>
+            <Text style={styles.resultTitle}>QR Code</Text>
+            <QRCodeDisplay data={sessionId} />
+            <Text style={styles.codeText}>
+              Manual Code: <Text style={styles.codeValue}>{sessionCode}</Text>
+            </Text>
+          </Animatable.View>
+        )}
+      </ScrollView>
+    </AppBackgroundWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1e3a8a',
   },
   content: {
     padding: 20,
@@ -133,6 +146,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     fontSize: 16,
     backgroundColor: '#ffffff',
+    color: '#0f172a',
   },
   button: {
     flexDirection: 'row',

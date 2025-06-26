@@ -1,2 +1,51 @@
-node_modules
+# Node modules
+node_modules/
+
+# macOS system files
+.DS_Store
+
+# Expo files
+.expo/
+.expo-shared/
+
+# Build outputs
+/dist
+/build
+
+# Logs and temporary files
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+bun.lockb
+*.log
+
+# Metro bundler cache
+.cache/
+*.tmp
+
+# Environment variable files
 .env
+.env.*
+
+# VSCode settings
+.vscode/
+
+# OS generated files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Expo managed workflow artifacts
+web-build/
+
+# Firebase emulator or generated files (if used)
+firebase-debug.log
+
+# EAS build artifacts (optional, but usually ignored)
+*.tar.gz
+*.apk
+*.aab
+*.ipa
+
+# Gitignore backups
+*.orig

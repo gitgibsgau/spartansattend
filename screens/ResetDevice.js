@@ -13,6 +13,7 @@ import {
 import { getFirestore, where, updateDoc, getDocs, query, collection } from 'firebase/firestore';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/Ionicons';
+import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 
 export default function ResetDevice() {
   const [email, setEmail] = useState('');
@@ -23,14 +24,14 @@ export default function ResetDevice() {
       const usersRef = collection(db, 'users');
       const q = query(usersRef, where('email', '==', email.trim().toLowerCase()));
       const querySnapshot = await getDocs(q);
-  
+
       if (querySnapshot.empty) {
         return Alert.alert("🚫 Not Found", "No user with that email.");
       }
-  
+
       const userDoc = querySnapshot.docs[0];
       await updateDoc(userDoc.ref, { deviceId: null });
-  
+
       Alert.alert("✅ Success", "Device ID has been reset.");
       setEmail('');
     } catch (error) {
@@ -39,47 +40,47 @@ export default function ResetDevice() {
   };
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      style={styles.container}
-    >
-      <StatusBar backgroundColor="#0f172a" barStyle="light-content" />
+    <AppBackgroundWrapper>
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.container}
+      >
+        <StatusBar backgroundColor="#0f172a" barStyle="light-content" />
 
-      <Animatable.View animation="fadeInDown" delay={200}>
-        <Text style={styles.header}>Reset Student Device</Text>
-      </Animatable.View>
+        <Animatable.View animation="fadeInDown" delay={200}>
+          <Text style={styles.header}>Reset Student Device</Text>
+        </Animatable.View>
 
-      <Animatable.View animation="fadeInUp" delay={400} style={styles.card}>
-        <Text style={styles.label}>Enter Student Email</Text>
-        <TextInput
-          value={email}
-          onChangeText={setEmail}
-          placeholder="student@example.com"
-          style={styles.input}
-          placeholderTextColor="#94a3b8"
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
+        <Animatable.View animation="fadeInUp" delay={400} style={styles.card}>
+          <Text style={styles.label}>Enter Student Email</Text>
+          <TextInput
+            value={email}
+            onChangeText={setEmail}
+            placeholder="student@example.com"
+            style={styles.input}
+            placeholderTextColor="#94a3b8"
+            autoCapitalize="none"
+            keyboardType="email-address"
+          />
 
-        <TouchableOpacity
-          style={styles.button}
-          onPress={handleReset}
-          activeOpacity={0.8}
-        >
-          <Icon name="refresh-circle" size={20} color="#fff" />
-          <Text style={styles.buttonText}>Reset Device ID</Text>
-        </TouchableOpacity>
-      </Animatable.View>
-    </KeyboardAvoidingView>
+          <TouchableOpacity
+            style={styles.button}
+            onPress={handleReset}
+            activeOpacity={0.8}
+          >
+            <Icon name="refresh-circle" size={20} color="#fff" />
+            <Text style={styles.buttonText}>Reset Device ID</Text>
+          </TouchableOpacity>
+        </Animatable.View>
+      </KeyboardAvoidingView>
+    </AppBackgroundWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
+    padding: 20,
   },
   header: {
     fontSize: 24,

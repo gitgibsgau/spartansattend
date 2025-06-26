@@ -4,25 +4,48 @@ import {
   TextInput,
   Alert,
   StyleSheet,
-  KeyboardAvoidingView,
-  Platform,
   TouchableWithoutFeedback,
   Keyboard,
   Text,
   Pressable,
-  ImageBackground,
+  ScrollView,
+  Animated,
+  Easing,
 } from 'react-native';
+import * as Haptics from 'expo-haptics';
 import * as Animatable from 'react-native-animatable';
 import * as Device from 'expo-device';
 import * as SecureStore from 'expo-secure-store';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { Ionicons } from '@expo/vector-icons'; // Login icon
+import { Ionicons } from '@expo/vector-icons';
+import AppBackgroundWrapper from '../components/AppBackgroundWrapper'; // 🔁 Using the wrapper
 
 export default function LoginScreen({ navigation }) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [scaleAnim] = useState(new Animated.Value(1));
+
+  const triggerFeedback = async (action) => {
+    Haptics.selectionAsync();
+    Animated.sequence([
+      Animated.timing(scaleAnim, {
+        toValue: 0.95,
+        duration: 80,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.quad),
+      }),
+      Animated.timing(scaleAnim, {
+        toValue: 1,
+        duration: 80,
+        useNativeDriver: true,
+        easing: Easing.out(Easing.quad),
+      }),
+    ]).start(() => {
+      action();
+    });
+  };
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -32,13 +55,10 @@ export default function LoginScreen({ navigation }) {
 
     try {
       const res = await signInWithEmailAndPassword(auth, email.trim(), password);
-
-      // 🔥 Force token refresh to ensure latest custom claims (needed for Firestore rules)
       await res.user.getIdToken(true);
 
       const uid = res.user.uid;
-      const userDocRef = doc(db, 'users', uid);
-      const userDocSnap = await getDoc(userDocRef);
+      const userDocSnap = await getDoc(doc(db, 'users', uid));
 
       if (!userDocSnap.exists()) {
         Alert.alert("Error", "User data not found in database.");
@@ -48,7 +68,7 @@ export default function LoginScreen({ navigation }) {
       const userData = userDocSnap.data();
       const role = userData.role;
       const registeredDeviceId = userData.deviceId;
-      const currentDeviceId = Device.osInternalBuildId || Device.modelId || 'unknown';
+      const currentDeviceId = Device.modelName || Device.deviceName || 'unknown';
 
       if (registeredDeviceId && registeredDeviceId !== currentDeviceId) {
         Alert.alert("Access Denied", "You can only log in from your registered device.");
@@ -78,116 +98,111 @@ export default function LoginScreen({ navigation }) {
   };
 
   return (
-    <ImageBackground
-      style={styles.background}
-      resizeMode="cover"
-    >
+    <AppBackgroundWrapper>
       <TouchableWithoutFeedback onPress={Keyboard.dismiss}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={styles.wrapper}
-        >
-          <Animatable.View animation="fadeInUp" duration={800} style={styles.card}>
-            <Ionicons name="person-circle-outline" size={80} color="#2563eb" style={styles.icon} />
-            <Text style={styles.title}>Welcome Spartan!</Text>
+        <View style={styles.wrapper}>
+          <ScrollView contentContainerStyle={styles.scrollContainer} keyboardShouldPersistTaps="handled">
+            <Animatable.View animation="fadeInUp" duration={800} style={styles.card}>
+              <Ionicons name="person-circle-outline" size={80} color="#2563eb" style={styles.icon} />
+              <Text style={styles.title}>Welcome Spartan!</Text>
 
-            <TextInput
-              placeholder="Email"
-              value={email}
-              onChangeText={setEmail}
-              autoCapitalize="none"
-              keyboardType="email-address"
-              style={styles.input}
-              placeholderTextColor="#94a3b8"
-            />
-            <TextInput
-              placeholder="Password"
-              value={password}
-              secureTextEntry
-              onChangeText={setPassword}
-              style={styles.input}
-              placeholderTextColor="#94a3b8"
-            />
+              <TextInput
+                placeholder="Enter your email"
+                value={email}
+                onChangeText={setEmail}
+                autoCapitalize="none"
+                keyboardType="email-address"
+                style={styles.input}
+                placeholderTextColor="#94a3b8"
+              />
+              <TextInput
+                placeholder="Enter your password"
+                value={password}
+                secureTextEntry
+                onChangeText={setPassword}
+                style={styles.input}
+                placeholderTextColor="#94a3b8"
+              />
 
-            <Pressable style={styles.button} onPress={handleLogin}>
-              <Text style={styles.buttonText}>Login</Text>
-            </Pressable>
+              <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+                <Pressable style={styles.button} onPress={() => triggerFeedback(handleLogin)}>
+                  <Text style={styles.buttonText}>Login</Text>
+                </Pressable>
+              </Animated.View>
 
-            <Text style={styles.switchText}>
-              Don't have an account?{' '}
-              <Text style={styles.link} onPress={() => navigation.navigate('Register')}>
-                Register
+              <Text style={styles.switchText}>
+                Don’t have an account?{' '}
+                <Text style={styles.link} onPress={() => navigation.navigate('Register')}>
+                  Register
+                </Text>
               </Text>
-            </Text>
-          </Animatable.View>
-        </KeyboardAvoidingView>
+            </Animatable.View>
+          </ScrollView>
+        </View>
       </TouchableWithoutFeedback>
-    </ImageBackground>
+    </AppBackgroundWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  background: {
+  wrapper: {
     flex: 1,
     justifyContent: 'center',
   },
-  wrapper: {
-    flex: 1,
-    backgroundColor: '#1e3a8a', // solid deep blue
-    justifyContent: 'center',
+  scrollContainer: {
+    flexGrow: 1,
     padding: 20,
-  },  
+    paddingBottom: 300,
+    justifyContent: 'center',
+  },
   card: {
-    backgroundColor: 'rgba(255,255,255,0.95)',
+    backgroundColor: '#ffffff',
     borderRadius: 16,
-    padding: 28,
+    padding: 24,
     shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 10,
+    shadowOpacity: 0.1,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 8,
+    elevation: 4,
   },
   icon: {
     alignSelf: 'center',
-    marginBottom: 8,
+    marginBottom: 16,
   },
   title: {
     fontSize: 26,
-    fontWeight: 'bold',
-    marginBottom: 24,
-    color: '#1e293b',
+    fontWeight: '700',
     textAlign: 'center',
+    color: '#1f2937',
+    marginBottom: 24,
   },
   input: {
-    marginBottom: 14,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    padding: 14,
-    borderRadius: 10,
     backgroundColor: '#f1f5f9',
+    padding: 12,
+    borderRadius: 8,
     fontSize: 16,
-    color: '#0f172a',
+    marginBottom: 12,
+    color: '#1f2937',
   },
   button: {
     backgroundColor: '#2563eb',
-    paddingVertical: 14,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginTop: 10,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 12,
   },
   buttonText: {
-    color: '#ffffff',
-    fontWeight: 'bold',
-    fontSize: 16,
+    color: '#fff',
+    fontSize: 18,
+    textAlign: 'center',
+    fontWeight: '600',
   },
   switchText: {
-    marginTop: 24,
+    marginTop: 20,
     textAlign: 'center',
     color: '#475569',
-    fontSize: 14,
   },
   link: {
     color: '#2563eb',
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
 });

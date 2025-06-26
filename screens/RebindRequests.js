@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
+import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 
 export default function RebindRequests({ navigation }) {
   const [requests, setRequests] = useState([]);
@@ -64,6 +65,7 @@ export default function RebindRequests({ navigation }) {
   );
 
   return (
+    <AppBackgroundWrapper>
     <View style={styles.container}>
       <StatusBar backgroundColor="#0f172a" barStyle="light-content" />
       <Animatable.Text
@@ -91,13 +93,13 @@ export default function RebindRequests({ navigation }) {
         />
       )}
     </View>
+    </AppBackgroundWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f1f5f9',
     paddingTop: 60,
     paddingHorizontal: 20,
   },
@@ -110,7 +112,7 @@ const styles = StyleSheet.create({
   },
   noRequests: {
     fontSize: 16,
-    color: '#64748b',
+    color: '#ffffff',
     textAlign: 'center',
     marginTop: 40,
   },
