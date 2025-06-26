@@ -82,11 +82,11 @@ export default function ManualEntryScreen() {
       }
 
       // ✅ Step 2: Now check location
-      const { withinRadius, distance, accuracy } = await checkLocationAccessAndProximity();
+      const { withinRadius, distance } = await checkLocationAccessAndProximity();
       if (!withinRadius) {
         showBanner(
           'error',
-          `You're ${Math.round(distance)}m away (GPS ±${Math.round(accuracy)}m). Must be within 100m.`
+          `You're ${Math.round(distance)}meter/s away. Must be within 100 meters.`
         );
         setLoading(false);
         return;
