@@ -17,7 +17,7 @@ export default function AppBackgroundWrapper({ children }) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#1e3a8a', // Spartan blue or your preferred color
+    backgroundColor: '#fff',
     paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
 });

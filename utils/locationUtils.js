@@ -2,8 +2,8 @@ import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 
 // Spartan location and allowed radius
-const ALLOWED_LAT = 37.330122;
-const ALLOWED_LNG = -121.877429;
+const ALLOWED_LAT = 37.335382;
+const ALLOWED_LNG = -121.879835;
 const RADIUS_METERS = 100;
 
 const getDistanceInMeters = (lat1, lon1, lat2, lon2) => {
