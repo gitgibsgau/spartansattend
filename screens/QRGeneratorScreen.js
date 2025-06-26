@@ -4,7 +4,6 @@ import {
   Text,
   TextInput,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   TouchableOpacity,
   ScrollView,
@@ -15,6 +14,11 @@ import QRCodeDisplay from '../components/QRCodeDisplay';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
+import {
+  useFonts,
+  Poppins_600SemiBold,
+  Poppins_400Regular,
+} from '@expo-google-fonts/poppins';
 
 const generateCode = (length = 6) => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -27,11 +31,25 @@ export default function QRGeneratorScreen() {
   const [sessionCode, setSessionCode] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
+  const [showStatus, setShowStatus] = useState(false);
+
+  const [fontsLoaded] = useFonts({
+    Poppins_600SemiBold,
+    Poppins_400Regular,
+  });
+
+  const showBanner = (type, text) => {
+    setStatusMessage({ type, text });
+    setShowStatus(true);
+    setTimeout(() => setShowStatus(false), 3000);
+  };
+
   const createSession = async () => {
     if (loading) return;
 
     if (!title.trim()) {
-      Alert.alert('Missing Title', 'Please enter a session title.');
+      showBanner('error', 'Please enter a session title.');
       return;
     }
 
@@ -44,20 +62,22 @@ export default function QRGeneratorScreen() {
         createdBy: auth.currentUser.uid,
         code,
         timestamp: Timestamp.now(),
-        expiresAt: Timestamp.fromDate(new Date(Date.now() + 4 * 60 * 60 * 1000)) // 3 hours
+        expiresAt: Timestamp.fromDate(new Date(Date.now() + 4 * 60 * 60 * 1000)) // 4 hours
       });
 
       setSessionId(docRef.id);
       setSessionCode(code);
-      setTitle(''); // Clear input on success
-      Alert.alert('Success 🎉', 'Session created successfully!');
+      setTitle('');
+      showBanner('success', 'Session created successfully!');
     } catch (err) {
       console.error('Error creating session:', err);
-      Alert.alert('Error ❌', err?.message || 'Could not create session.');
+      showBanner('error', err?.message || 'Could not create session.');
     } finally {
       setLoading(false);
     }
   };
+
+  if (!fontsLoaded) return null;
 
   return (
     <AppBackgroundWrapper>
@@ -80,7 +100,6 @@ export default function QRGeneratorScreen() {
             style={styles.button}
             onPress={createSession}
             disabled={loading}
-            accessibilityLabel="Generate QR code for this session"
           >
             {loading ? (
               <ActivityIndicator color="#fff" />
@@ -102,23 +121,34 @@ export default function QRGeneratorScreen() {
             </Text>
           </Animatable.View>
         )}
+
+        {showStatus && (
+          <Animatable.View
+            animation="slideInUp"
+            duration={400}
+            style={[
+              styles.statusBanner,
+              statusMessage.type === 'error' ? styles.error : styles.success,
+            ]}
+          >
+            <Text style={styles.statusText}>{statusMessage.text}</Text>
+          </Animatable.View>
+        )}
       </ScrollView>
     </AppBackgroundWrapper>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-  },
+  container: { flex: 1 },
   content: {
     padding: 20,
     paddingBottom: 40,
   },
   heading: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#f8fafc',
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#1e3a8a',
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -134,7 +164,7 @@ const styles = StyleSheet.create({
   },
   label: {
     fontSize: 14,
-    fontWeight: '500',
+    fontFamily: 'Poppins_600SemiBold',
     marginBottom: 8,
     color: '#334155',
   },
@@ -147,6 +177,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     backgroundColor: '#ffffff',
     color: '#0f172a',
+    fontFamily: 'Poppins_400Regular',
   },
   button: {
     flexDirection: 'row',
@@ -160,8 +191,8 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     color: '#fff',
-    fontWeight: '600',
     fontSize: 16,
+    fontFamily: 'Poppins_600SemiBold',
   },
   resultCard: {
     marginTop: 30,
@@ -173,19 +204,49 @@ const styles = StyleSheet.create({
   },
   resultTitle: {
     fontSize: 18,
-    fontWeight: '600',
+    fontFamily: 'Poppins_600SemiBold',
     marginBottom: 10,
     color: '#0f172a',
   },
   codeText: {
     marginTop: 16,
     fontSize: 16,
-    fontWeight: '500',
+    fontFamily: 'Poppins_400Regular',
     color: '#1e293b',
   },
   codeValue: {
-    fontWeight: 'bold',
+    fontFamily: 'Poppins_600SemiBold',
     color: '#2563eb',
     fontSize: 18,
+  },
+  statusBanner: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    right: 20,
+    padding: 12,
+    borderRadius: 10,
+    borderLeftWidth: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 3,
+    zIndex: 100,
+    backgroundColor: '#fff',
+  },
+  statusText: {
+    fontSize: 16,
+    fontFamily: 'Poppins_400Regular',
+    textAlign: 'center',
+    color: '#1e293b',
+  },
+  error: {
+    backgroundColor: '#fee2e2',
+    borderLeftColor: '#dc2626',
+  },
+  success: {
+    backgroundColor: '#d1fae5',
+    borderLeftColor: '#059669',
   },
 });

@@ -13,15 +13,33 @@ import { db, auth } from '../firebase';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
+import {
+  useFonts,
+  Poppins_600SemiBold,
+  Poppins_400Regular,
+} from '@expo-google-fonts/poppins';
 
 const screenWidth = Dimensions.get('window').width;
 const numColumns = 2;
 const cardWidth = screenWidth / numColumns - 30;
 
 export default function AttendanceViewScreen({ navigation }) {
+  const [fontsLoaded] = useFonts({
+    Poppins_600SemiBold,
+    Poppins_400Regular,
+  });
+
   const [sessionData, setSessionData] = useState([]);
   const [role, setRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
+  const [showStatus, setShowStatus] = useState(false);
+
+  const showBanner = (type, text) => {
+    setStatusMessage({ type, text });
+    setShowStatus(true);
+    setTimeout(() => setShowStatus(false), 3000);
+  };
 
   useEffect(() => {
     const fetchAttendance = async () => {
@@ -70,6 +88,7 @@ export default function AttendanceViewScreen({ navigation }) {
         setSessionData(sessionData);
       } catch (error) {
         console.error('Error fetching attendance:', error);
+        showBanner('error', 'Failed to load attendance.');
       } finally {
         setLoading(false);
       }
@@ -78,11 +97,21 @@ export default function AttendanceViewScreen({ navigation }) {
     fetchAttendance();
   }, []);
 
-  const renderCard = ({ item, index }) => (
+  if (!fontsLoaded) {
+    return (
+      <AppBackgroundWrapper>
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#4F46E5" />
+        </View>
+      </AppBackgroundWrapper>
+    );
+  }
+
+  const renderCard = ({ item }) => (
     <TouchableOpacity
-      onPress={() => navigation.navigate('SessionDataScreen', { sessionId: item.sessionId, role: role })}
+      onPress={() => navigation.navigate('SessionDataScreen', { sessionId: item.sessionId, role })}
     >
-      <Animatable.View style={[styles.card, { width: cardWidth }]}>
+      <Animatable.View animation="fadeInUp" style={[styles.card, { width: cardWidth }]}>
         <Icon name="calendar-outline" size={30} color="#4ADE80" />
         <Text style={styles.session}>{item.sessionTitle}</Text>
         {role === 'admin' && (
@@ -128,6 +157,19 @@ export default function AttendanceViewScreen({ navigation }) {
           showsVerticalScrollIndicator={false}
         />
       </View>
+
+      {showStatus && (
+        <Animatable.View
+          animation="slideInUp"
+          duration={400}
+          style={[
+            styles.statusBanner,
+            statusMessage.type === 'error' ? styles.error : styles.success,
+          ]}
+        >
+          <Text style={styles.statusText}>{statusMessage.text}</Text>
+        </Animatable.View>
+      )}
     </AppBackgroundWrapper>
   );
 }
@@ -144,19 +186,20 @@ const styles = StyleSheet.create({
   },
   heading: {
     fontSize: 22,
-    fontWeight: 'bold',
+    fontFamily: 'Poppins_600SemiBold',
     marginBottom: 15,
     textAlign: 'center',
-    color: '#fff', // Light text
+    color: '#fff',
   },
   headerText: {
     fontSize: 16,
-    color: '#94a3b8', // Light gray
+    fontFamily: 'Poppins_400Regular',
+    color: '#94a3b8',
     textAlign: 'center',
     marginTop: 50,
   },
   card: {
-    backgroundColor: '#f8fafc', // Light card
+    backgroundColor: '#f8fafc',
     borderRadius: 12,
     padding: 15,
     elevation: 3,
@@ -168,19 +211,42 @@ const styles = StyleSheet.create({
   },
   session: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#1e293b', // Deep slate
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#1e293b',
     marginTop: 8,
   },
   student: {
     fontSize: 14,
+    fontFamily: 'Poppins_400Regular',
     color: '#334155',
     marginTop: 4,
   },
-  time: {
-    fontSize: 12,
-    color: '#64748b',
-    marginTop: 6,
+  statusBanner: {
+    position: 'absolute',
+    bottom: 30,
+    left: 20,
+    right: 20,
+    padding: 12,
+    borderRadius: 10,
+    borderLeftWidth: 6,
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: 2 },
+    shadowRadius: 6,
+    elevation: 3,
+    zIndex: 100,
+  },
+  statusText: {
+    fontSize: 16,
+    fontFamily: 'Poppins_400Regular',
+    textAlign: 'center',
+  },
+  error: {
+    backgroundColor: '#fee2e2',
+    borderLeftColor: '#dc2626',
+  },
+  success: {
+    backgroundColor: '#d1fae5',
+    borderLeftColor: '#059669',
   },
 });
-
