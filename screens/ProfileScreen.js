@@ -59,10 +59,12 @@ export default function ProfileScreen({ navigation }) {
 
                     if (scoreSnap.exists()) {
                         const data = scoreSnap.data();
-                        const values = ['dhol', 'maintenance', 'dhwaj', 'tasha']
+                        const values = ['dhol1', 'dhol2', 'maintenance', 'dhwaj', 'tasha']
                             .filter(k => k in data && typeof data[k] === 'number')
                             .map(k => data[k]);
                         if (values.length > 0) {
+                            dholAvg = (data.dhol1 + data.dhol2) / 2;
+                            values.push(dholAvg);
                             averageScore = values.reduce((a, b) => a + b, 0) / values.length;
                         }
                         detailedScores = data;
@@ -155,10 +157,10 @@ export default function ProfileScreen({ navigation }) {
                     <Text style={styles.cardValue}>
                         {user.createdAt
                             ? new Date(user.createdAt).toLocaleDateString(undefined, {
-                                  year: 'numeric',
-                                  month: 'long',
-                                  day: 'numeric',
-                              })
+                                year: 'numeric',
+                                month: 'long',
+                                day: 'numeric',
+                            })
                             : 'N/A'}
                     </Text>
                 </View>
@@ -167,7 +169,14 @@ export default function ProfileScreen({ navigation }) {
                     <View style={styles.modalBackdrop}>
                         <View style={styles.modalContent}>
                             <Text style={styles.modalTitle}>Parikshan Breakdown</Text>
-                            {['dhol', 'maintenance', 'dhwaj', 'tasha'].map((key) => (
+                            {user.detailedScores?.dhol1 !== undefined && user.detailedScores?.dhol2 !== undefined && (
+                                <Text style={styles.modalItem}>
+                                    Dhol (Average): {((
+                                        (user.detailedScores.dhol1 + user.detailedScores.dhol2) / 2
+                                    ).toFixed(1))} / 10
+                                </Text>
+                            )}
+                            {['maintenance', 'dhwaj', 'tasha'].map((key) => (
                                 key in user.detailedScores && (
                                     <Text key={key} style={styles.modalItem}>
                                         {key.charAt(0).toUpperCase() + key.slice(1)}: {user.detailedScores[key]} / 10

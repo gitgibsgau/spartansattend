@@ -30,7 +30,7 @@ export default function AdminParikshanScreen() {
     const [searchText, setSearchText] = useState('');
     const [loadingStudents, setLoadingStudents] = useState(false);
 
-    const [scores, setScores] = useState({ dhol: '', maintenance: '', dhwaj: '', tasha: '' });
+    const [scores, setScores] = useState({ dhol1: '', dhol2: '', maintenance: '', dhwaj: '', tasha: '' });
     const [lockedFields, setLockedFields] = useState({});
     const [submittedBy, setSubmittedBy] = useState(null);
     const [isTashaApplicable, setIsTashaApplicable] = useState(false);
@@ -38,6 +38,7 @@ export default function AdminParikshanScreen() {
     const [isSuperAdmin, setIsSuperAdmin] = useState(false);
     const [resultsReleased, setResultsReleased] = useState(false);
     const [togglingRelease, setTogglingRelease] = useState(false);
+    const [isScorer, setIsScorer] = useState(false);
 
     const [fontsLoaded] = useFonts({
         Poppins_600SemiBold,
@@ -51,6 +52,7 @@ export default function AdminParikshanScreen() {
             if (userSnap.exists()) {
                 const userData = userSnap.data();
                 setIsSuperAdmin(userData.isSuperAdmin || false);
+                setIsScorer(userData.isScorer || false);
             }
 
             const settingsRef = doc(db, 'globalConfig', 'parikshanSettings');
@@ -84,21 +86,46 @@ export default function AdminParikshanScreen() {
         const userSnapshot = await getDocs(collection(db, 'users'));
         const scoreSnapshot = await getDocs(collection(db, 'parikshanScores'));
 
-        const scoredIds = new Set(scoreSnapshot.docs.map(doc => doc.id));
+        const scoreMap = new Map();
+        scoreSnapshot.forEach((docSnap) => {
+            scoreMap.set(docSnap.id, docSnap.data());
+        });
+
         const list = [];
 
         userSnapshot.forEach((docSnap) => {
             const data = docSnap.data();
             if (data.role === 'student') {
+                const scoreData = scoreMap.get(docSnap.id);
+                let badge = null;
+
+                if (scoreData) {
+                    const fields = ['dhol1', 'dhol2', 'maintenance', 'dhwaj'];
+                    const baseComplete = fields.every(f => typeof scoreData[f] === 'number');
+
+                    const tashaIncluded = 'tasha' in scoreData;
+                    const tashaValid = tashaIncluded ? typeof scoreData.tasha === 'number' : true;
+
+                    if (baseComplete && tashaValid) {
+                        badge = 'scored';
+                    } else {
+                        badge = 'partial';
+                    }
+                }
+
                 list.push({
                     label: data.fullname || 'Unnamed',
                     value: docSnap.id,
-                    scored: scoredIds.has(docSnap.id),
+                    badge,
                 });
             }
         });
 
-        list.sort((a, b) => (b.scored === a.scored ? a.label.localeCompare(b.label) : b.scored - a.scored));
+        // Sort: scored > partial > none
+        list.sort((a, b) => {
+            const badgeRank = { scored: 0, partial: 2, null: 1 };
+            return badgeRank[b.badge] - badgeRank[a.badge] || a.label.localeCompare(b.label);
+        });
 
         setStudents(list);
         setLoadingStudents(false);
@@ -113,13 +140,15 @@ export default function AdminParikshanScreen() {
             if (snap.exists()) {
                 const data = snap.data();
                 setScores({
-                    dhol: data.dhol?.toString() ?? '',
+                    dhol1: data.dhol1?.toString() ?? '',
+                    dhol2: data.dhol2?.toString() ?? '',
                     maintenance: data.maintenance?.toString() ?? '',
                     dhwaj: data.dhwaj?.toString() ?? '',
                     tasha: data.tasha?.toString() ?? '',
                 });
                 setLockedFields({
-                    dhol: 'dhol' in data,
+                    dhol1: 'dhol1' in data,
+                    dhol2: 'dhol2' in data,
                     maintenance: 'maintenance' in data,
                     dhwaj: 'dhwaj' in data,
                     tasha: 'tasha' in data,
@@ -127,7 +156,7 @@ export default function AdminParikshanScreen() {
                 setIsTashaApplicable('tasha' in data);
                 setSubmittedBy(data.submittedByName || null);
             } else {
-                setScores({ dhol: '', maintenance: '', dhwaj: '', tasha: '' });
+                setScores({ dhol1: '', dhol2: '', maintenance: '', dhwaj: '', tasha: '' });
                 setLockedFields({});
                 setIsTashaApplicable(false);
                 setSubmittedBy(null);
@@ -165,7 +194,8 @@ export default function AdminParikshanScreen() {
         const existing = await getDoc(ref);
         const existingData = existing.exists() ? existing.data() : {};
 
-        if (!('dhol' in existingData) && scores.dhol !== '') updates.dhol = +scores.dhol;
+        if (!('dhol1' in existingData) && scores.dhol1 !== '') updates.dhol1 = +scores.dhol1;
+        if (!('dhol2' in existingData) && scores.dhol2 !== '') updates.dhol2 = +scores.dhol2;
         if (!('maintenance' in existingData) && scores.maintenance !== '') updates.maintenance = +scores.maintenance;
         if (!('dhwaj' in existingData) && scores.dhwaj !== '') updates.dhwaj = +scores.dhwaj;
         if (!('tasha' in existingData) && isTashaApplicable && scores.tasha !== '') updates.tasha = +scores.tasha;
@@ -174,7 +204,8 @@ export default function AdminParikshanScreen() {
             await setDoc(ref, { ...existingData, ...updates });
             showBanner('success', 'Scores saved!');
             setLockedFields(prev => ({
-                dhol: prev.dhol || 'dhol' in updates,
+                dhol1: prev.dhol1 || 'dhol1' in updates,
+                dhol2: prev.dhol2 || 'dhol2' in updates,
                 maintenance: prev.maintenance || 'maintenance' in updates,
                 dhwaj: prev.dhwaj || 'dhwaj' in updates,
                 tasha: prev.tasha || 'tasha' in updates,
@@ -204,7 +235,10 @@ export default function AdminParikshanScreen() {
         handleSearch(searchText);
     }, [searchText, students]);
 
+    const allFieldsLocked = lockedFields.dhol1 && lockedFields.dhol2 && lockedFields.maintenance && lockedFields.dhwaj && (!isTashaApplicable || lockedFields.tasha);
+
     if (!fontsLoaded) return null;
+
 
     return (
         <KeyboardAvoidingView style={styles.container}>
@@ -221,14 +255,17 @@ export default function AdminParikshanScreen() {
                     </Text>
                 </TouchableOpacity>
             )}
-
             <TouchableOpacity
                 style={[styles.dropdownBtn, selectedStudentName ? styles.selectedStudentCard : {}]}
                 onPress={openStudentModal}
+                activeOpacity={0.7}
             >
-                <Text style={styles.dropdownText}>
-                    {selectedStudentName || 'Select student'}
-                </Text>
+                <View style={styles.dropdownContent}>
+                    <Text style={styles.dropdownText}>
+                        {selectedStudentName || 'Select Student'}
+                    </Text>
+                    <Text style={styles.dropdownIcon}>⌄</Text>
+                </View>
             </TouchableOpacity>
 
             <Modal visible={modalVisible} animationType="slide">
@@ -263,9 +300,14 @@ export default function AdminParikshanScreen() {
                                     >
                                         <View style={styles.studentRow}>
                                             <Text style={styles.studentLabel}>{item.label}</Text>
-                                            {item.scored && (
+                                            {item.badge === 'scored' && (
                                                 <View style={styles.scoredBadge}>
                                                     <Text style={styles.badgeText}>Scored</Text>
+                                                </View>
+                                            )}
+                                            {item.badge === 'partial' && (
+                                                <View style={styles.partialBadge}>
+                                                    <Text style={styles.badgeText}>Partially Scored</Text>
                                                 </View>
                                             )}
                                         </View>
@@ -291,18 +333,24 @@ export default function AdminParikshanScreen() {
             )}
 
             <View style={styles.form}>
-                {['dhol', 'maintenance', 'dhwaj'].map((field) => (
-                    <View key={field}>
-                        <Text style={styles.label}>{field[0].toUpperCase() + field.slice(1)} (out of 10)</Text>
-                        <TextInput
-                            style={styles.input}
-                            keyboardType="numeric"
-                            value={scores[field]}
-                            editable={!lockedFields[field]}
-                            onChangeText={(v) => handleScoreChange(field, v)}
-                        />
-                    </View>
-                ))}
+                {['dhol1', 'dhol2', 'maintenance', 'dhwaj'].map((field) => {
+                    if (isScorer && lockedFields[field]) return null; // hide from scorers if locked
+
+                    return (
+                        <View key={field}>
+                            <Text style={styles.label}>
+                                {field[0].toUpperCase() + field.slice(1)} (out of 10)
+                            </Text>
+                            <TextInput
+                                style={styles.input}
+                                keyboardType="numeric"
+                                value={scores[field]}
+                                editable={!lockedFields[field]}
+                                onChangeText={(v) => handleScoreChange(field, v)}
+                            />
+                        </View>
+                    );
+                })}
 
                 <TouchableOpacity
                     style={[styles.toggle, isTashaApplicable && styles.toggleActive]}
@@ -314,21 +362,28 @@ export default function AdminParikshanScreen() {
                     </Text>
                 </TouchableOpacity>
 
-                {isTashaApplicable && (
-                    <>
-                        <Text style={styles.label}>Tasha (out of 10)</Text>
-                        <TextInput
-                            keyboardType="numeric"
-                            style={styles.input}
-                            value={scores.tasha}
-                            editable={!lockedFields.tasha}
-                            onChangeText={(v) => handleScoreChange('tasha', v)}
-                        />
-                    </>
-                )}
-
-                <TouchableOpacity style={styles.saveButton} onPress={handleSave}>
-                    <Text style={styles.saveText}>Save Scores</Text>
+                {isTashaApplicable && !(
+                    isScorer && lockedFields.tasha
+                ) && (
+                        <>
+                            <Text style={styles.label}>Tasha (out of 10)</Text>
+                            <TextInput
+                                keyboardType="numeric"
+                                style={styles.input}
+                                value={scores.tasha}
+                                editable={!lockedFields.tasha}
+                                onChangeText={(v) => handleScoreChange('tasha', v)}
+                            />
+                        </>
+                    )}
+                <TouchableOpacity
+                    style={[styles.saveButton, allFieldsLocked && { backgroundColor: '#ccc' }]}
+                    onPress={handleSave}
+                    disabled={allFieldsLocked}
+                >
+                    <Text style={styles.saveText}>
+                        {allFieldsLocked ? 'All Scores Locked' : 'Save Scores'}
+                    </Text>
                 </TouchableOpacity>
             </View>
 
@@ -374,6 +429,7 @@ const styles = StyleSheet.create({
     },
     dropdownText: {
         fontSize: 16,
+        fontWeight: '800',
         fontFamily: 'Poppins_400Regular',
         color: '#1e293b',
     },
@@ -402,6 +458,12 @@ const styles = StyleSheet.create({
         color: '#15803d',
         fontSize: 12,
         fontFamily: 'Poppins_600SemiBold',
+    },
+    partialBadge: {
+        backgroundColor: '#fde68a',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
     },
     form: {
         flex: 1,
@@ -481,5 +543,31 @@ const styles = StyleSheet.create({
         color: '#334155',
         marginBottom: 4,
         marginTop: 12,
+    },
+    dropdownBtn: {
+        backgroundColor: '#f1f5f9',
+        padding: 14,
+        borderRadius: 12,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#4f46e5',
+        shadowColor: '#000',
+        shadowOpacity: 0.05,
+        shadowOffset: { width: 0, height: 1 },
+        shadowRadius: 4,
+        elevation: 3,
+    },
+
+    dropdownContent: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+    },
+
+    dropdownIcon: {
+        fontSize: 18,
+        color: '#475569',
+        marginLeft: 8,
+        fontWeight: 'bold',
     },
 });

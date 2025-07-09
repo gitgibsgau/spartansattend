@@ -31,6 +31,7 @@ import {
 
 export default function ManualEntryScreen() {
   const [code, setCode] = useState('');
+  const [title, setTitle] = useState('');
   const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
@@ -63,6 +64,7 @@ export default function ManualEntryScreen() {
           const doc = snapshot.docs[0];
           const data = doc.data();
           setCode(data.code?.toUpperCase() || '');
+          setTitle(data.title?.toUpperCase() || 'Session');
           setSessionId(doc.id);
         } else {
           showBanner('error', 'No valid session available.');
@@ -141,6 +143,9 @@ export default function ManualEntryScreen() {
         style={styles.wrapper}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
       >
+        <Text style={styles.sessionTitle}>
+          {title ? title.toUpperCase() : ''}
+        </Text>
         <Animatable.View animation="fadeInUp" duration={700} style={styles.card}>
           <Icon name="qr-code-outline" size={40} color="#4F46E5" style={{ marginBottom: 10 }} />
           <Text style={styles.label}>Session Code</Text>
@@ -151,6 +156,7 @@ export default function ManualEntryScreen() {
             delay={300}
             style={styles.animatedInputWrapper}
           >
+
             <TextInput
               value={code}
               editable={false}
@@ -268,5 +274,12 @@ const styles = StyleSheet.create({
   success: {
     backgroundColor: '#d1fae5',
     borderLeftColor: '#059669',
+  },
+  sessionTitle: {
+    fontSize: 18,
+    fontFamily: 'Poppins_600SemiBold',
+    color: '#1e293b',
+    marginBottom: 20,
+    textAlign: 'center',
   },
 });
