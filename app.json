@@ -2,8 +2,8 @@
   "expo": {
     "name": "SpartansAttend",
     "slug": "spartans-attend",
-    "version": "2.0.0",
-    "orientation": "portrait",
+    "version": "2.1.0",
+    "orientation": "default",
     "icon": "./assets/icon.png",
     "scheme": "spartansattend",
     "userInterfaceStyle": "automatic",
@@ -21,7 +21,7 @@
     ],
     "ios": {
       "bundleIdentifier": "com.gaurav.spartansattend",
-      "buildNumber": "4.0.0",
+      "buildNumber": "5.0.0",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to scan attendance QR codes.",
         "NSLocationWhenInUseUsageDescription": "This app uses your location to verify proximity during attendance marking.",
@@ -31,13 +31,9 @@
     },
     "android": {
       "package": "com.gaurav.spartansattend",
-      "versionCode": 4,
+      "versionCode": 5,
       "targetSdkVersion": 35,
       "permissions": [
-        "CAMERA",
-        "ACCESS_FINE_LOCATION",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
         "CAMERA",
         "ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
@@ -46,6 +42,10 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
+      },
+      "statusBar": {
+        "translucent": true,
+        "backgroundColor": "#00000000"
       }
     },
     "privacy": "public",

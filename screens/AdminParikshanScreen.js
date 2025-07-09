@@ -10,6 +10,7 @@ import {
     Modal,
     FlatList,
     ActivityIndicator,
+    ScrollView,
 } from 'react-native';
 import {
     collection,
@@ -241,160 +242,166 @@ export default function AdminParikshanScreen() {
 
 
     return (
-        <KeyboardAvoidingView style={styles.container}>
-            <Animatable.Text animation="fadeInDown" style={styles.title}>Parikshan Scoring</Animatable.Text>
-
-            {isSuperAdmin && (
-                <TouchableOpacity
-                    style={[styles.toggle, resultsReleased && styles.toggleActive]}
-                    onPress={toggleReleaseResults}
-                    disabled={togglingRelease}
-                >
-                    <Text style={[styles.toggleText, resultsReleased && styles.toggleTextActive]}>
-                        {resultsReleased ? '✅ Results Released' : '🔒 Results Hidden'}
-                    </Text>
-                </TouchableOpacity>
-            )}
-            <TouchableOpacity
-                style={[styles.dropdownBtn, selectedStudentName ? styles.selectedStudentCard : {}]}
-                onPress={openStudentModal}
-                activeOpacity={0.7}
+        <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
+            <ScrollView
+                contentContainerStyle={{ paddingBottom: 200 }}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
             >
-                <View style={styles.dropdownContent}>
-                    <Text style={styles.dropdownText}>
-                        {selectedStudentName || 'Select Student'}
-                    </Text>
-                    <Text style={styles.dropdownIcon}>⌄</Text>
-                </View>
-            </TouchableOpacity>
+                <Animatable.Text animation="fadeInDown" style={styles.title}>Parikshan Scoring</Animatable.Text>
 
-            <Modal visible={modalVisible} animationType="slide">
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    style={{ flex: 1 }}
+                {isSuperAdmin && (
+                    <TouchableOpacity
+                        style={[styles.toggle, resultsReleased && styles.toggleActive]}
+                        onPress={toggleReleaseResults}
+                        disabled={togglingRelease}
+                    >
+                        <Text style={[styles.toggleText, resultsReleased && styles.toggleTextActive]}>
+                            {resultsReleased ? '✅ Results Released' : '🔒 Results Hidden'}
+                        </Text>
+                    </TouchableOpacity>
+                )}
+                <TouchableOpacity
+                    style={[styles.dropdownBtn, selectedStudentName ? styles.selectedStudentCard : {}]}
+                    onPress={openStudentModal}
+                    activeOpacity={0.7}
                 >
-                    <View style={{ flex: 1, padding: 24, paddingTop: 60 }}>
-                        <TextInput
-                            placeholder="Search student"
-                            value={searchText}
-                            onChangeText={setSearchText}
-                            style={styles.input}
-                        />
-
-                        {loadingStudents ? (
-                            <ActivityIndicator size="large" color="#4f46e5" style={{ marginTop: 20 }} />
-                        ) : (
-                            <FlatList
-                                data={filteredStudents}
-                                keyExtractor={(item) => item.value}
-                                contentContainerStyle={{ paddingBottom: 80 }}
-                                showsVerticalScrollIndicator={false}
-                                renderItem={({ item }) => (
-                                    <TouchableOpacity
-                                        style={styles.studentItem}
-                                        onPress={() => {
-                                            setSelectedStudent(item.value);
-                                            setSelectedStudentName(item.label);
-                                            setModalVisible(false);
-                                        }}
-                                    >
-                                        <View style={styles.studentRow}>
-                                            <Text style={styles.studentLabel}>{item.label}</Text>
-                                            {item.badge === 'scored' && (
-                                                <View style={styles.scoredBadge}>
-                                                    <Text style={styles.badgeText}>Scored</Text>
-                                                </View>
-                                            )}
-                                            {item.badge === 'partial' && (
-                                                <View style={styles.partialBadge}>
-                                                    <Text style={styles.badgeText}>Partially Scored</Text>
-                                                </View>
-                                            )}
-                                        </View>
-                                    </TouchableOpacity>
-                                )}
-                            />
-                        )}
-
-                        <TouchableOpacity
-                            style={[styles.saveButton, { backgroundColor: '#ccc', marginTop: 16 }]}
-                            onPress={() => setModalVisible(false)}
-                        >
-                            <Text style={styles.saveText}>Close</Text>
-                        </TouchableOpacity>
+                    <View style={styles.dropdownContent}>
+                        <Text style={styles.dropdownText}>
+                            {selectedStudentName || 'Select Student'}
+                        </Text>
+                        <Text style={styles.dropdownIcon}>⌄</Text>
                     </View>
-                </KeyboardAvoidingView>
-            </Modal>
+                </TouchableOpacity>
 
-            {submittedBy && (
-                <Text style={{ color: 'green', textAlign: 'center', marginBottom: 8 }}>
-                    ✅ Scores submitted by {submittedBy}
-                </Text>
-            )}
-
-            <View style={styles.form}>
-                {['dhol1', 'dhol2', 'maintenance', 'dhwaj'].map((field) => {
-                    if (isScorer && lockedFields[field]) return null; // hide from scorers if locked
-
-                    return (
-                        <View key={field}>
-                            <Text style={styles.label}>
-                                {field[0].toUpperCase() + field.slice(1)} (out of 10)
-                            </Text>
+                <Modal visible={modalVisible} animationType="slide">
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        style={{ flex: 1 }}
+                    >
+                        <View style={{ flex: 1, padding: 24, paddingTop: 60 }}>
                             <TextInput
+                                placeholder="Search student"
+                                value={searchText}
+                                onChangeText={setSearchText}
                                 style={styles.input}
-                                keyboardType="numeric"
-                                value={scores[field]}
-                                editable={!lockedFields[field]}
-                                onChangeText={(v) => handleScoreChange(field, v)}
                             />
+
+                            {loadingStudents ? (
+                                <ActivityIndicator size="large" color="#4f46e5" style={{ marginTop: 20 }} />
+                            ) : (
+                                <FlatList
+                                    data={filteredStudents}
+                                    keyExtractor={(item) => item.value}
+                                    contentContainerStyle={{ paddingBottom: 80 }}
+                                    showsVerticalScrollIndicator={false}
+                                    renderItem={({ item }) => (
+                                        <TouchableOpacity
+                                            style={styles.studentItem}
+                                            onPress={() => {
+                                                setSelectedStudent(item.value);
+                                                setSelectedStudentName(item.label);
+                                                setModalVisible(false);
+                                            }}
+                                        >
+                                            <View style={styles.studentRow}>
+                                                <Text style={styles.studentLabel}>{item.label}</Text>
+                                                {item.badge === 'scored' && (
+                                                    <View style={styles.scoredBadge}>
+                                                        <Text style={styles.badgeText}>Scored</Text>
+                                                    </View>
+                                                )}
+                                                {item.badge === 'partial' && (
+                                                    <View style={styles.partialBadge}>
+                                                        <Text style={styles.badgeText}>Partially Scored</Text>
+                                                    </View>
+                                                )}
+                                            </View>
+                                        </TouchableOpacity>
+                                    )}
+                                />
+                            )}
+
+                            <TouchableOpacity
+                                style={[styles.saveButton, { backgroundColor: '#ccc', marginTop: 16 }]}
+                                onPress={() => setModalVisible(false)}
+                            >
+                                <Text style={styles.saveText}>Close</Text>
+                            </TouchableOpacity>
                         </View>
-                    );
-                })}
+                    </KeyboardAvoidingView>
+                </Modal>
 
-                <TouchableOpacity
-                    style={[styles.toggle, isTashaApplicable && styles.toggleActive]}
-                    onPress={() => setIsTashaApplicable(prev => !prev)}
-                    disabled={lockedFields.tasha}
-                >
-                    <Text style={[styles.toggleText, isTashaApplicable && styles.toggleTextActive]}>
-                        {isTashaApplicable ? '✔️ Tasha Parikshan: Enabled' : 'Tasha Parikshan: Disabled'}
+                {submittedBy && (
+                    <Text style={{ color: 'green', textAlign: 'center', marginBottom: 8 }}>
+                        ✅ Scores submitted by {submittedBy}
                     </Text>
-                </TouchableOpacity>
+                )}
 
-                {isTashaApplicable && !(
-                    isScorer && lockedFields.tasha
-                ) && (
-                        <>
-                            <Text style={styles.label}>Tasha (out of 10)</Text>
-                            <TextInput
-                                keyboardType="numeric"
-                                style={styles.input}
-                                value={scores.tasha}
-                                editable={!lockedFields.tasha}
-                                onChangeText={(v) => handleScoreChange('tasha', v)}
-                            />
-                        </>
-                    )}
-                <TouchableOpacity
-                    style={[styles.saveButton, allFieldsLocked && { backgroundColor: '#ccc' }]}
-                    onPress={handleSave}
-                    disabled={allFieldsLocked}
-                >
-                    <Text style={styles.saveText}>
-                        {allFieldsLocked ? 'All Scores Locked' : 'Save Scores'}
-                    </Text>
-                </TouchableOpacity>
-            </View>
+                <View style={styles.form}>
+                    {['dhol1', 'dhol2', 'maintenance', 'dhwaj'].map((field) => {
+                        if (isScorer && lockedFields[field]) return null; // hide from scorers if locked
 
-            {status.show && (
-                <Animatable.View
-                    animation="slideInUp"
-                    style={[styles.statusBanner, status.type === 'error' ? styles.error : styles.success]}
-                >
-                    <Text style={styles.statusText}>{status.text}</Text>
-                </Animatable.View>
-            )}
+                        return (
+                            <View key={field}>
+                                <Text style={styles.label}>
+                                    {field[0].toUpperCase() + field.slice(1)} (out of 10)
+                                </Text>
+                                <TextInput
+                                    style={styles.input}
+                                    keyboardType="numeric"
+                                    value={scores[field]}
+                                    editable={!lockedFields[field]}
+                                    onChangeText={(v) => handleScoreChange(field, v)}
+                                />
+                            </View>
+                        );
+                    })}
+
+                    <TouchableOpacity
+                        style={[styles.toggle, isTashaApplicable && styles.toggleActive]}
+                        onPress={() => setIsTashaApplicable(prev => !prev)}
+                        disabled={lockedFields.tasha}
+                    >
+                        <Text style={[styles.toggleText, isTashaApplicable && styles.toggleTextActive]}>
+                            {isTashaApplicable ? '✔️ Tasha Parikshan: Enabled' : 'Tasha Parikshan: Disabled'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    {isTashaApplicable && !(
+                        isScorer && lockedFields.tasha
+                    ) && (
+                            <>
+                                <Text style={styles.label}>Tasha (out of 10)</Text>
+                                <TextInput
+                                    keyboardType="numeric"
+                                    style={styles.input}
+                                    value={scores.tasha}
+                                    editable={!lockedFields.tasha}
+                                    onChangeText={(v) => handleScoreChange('tasha', v)}
+                                />
+                            </>
+                        )}
+                    <TouchableOpacity
+                        style={[styles.saveButton, allFieldsLocked && { backgroundColor: '#ccc' }]}
+                        onPress={handleSave}
+                        disabled={allFieldsLocked}
+                    >
+                        <Text style={styles.saveText}>
+                            {allFieldsLocked ? 'All Scores Locked' : 'Save Scores'}
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
+                {status.show && (
+                    <Animatable.View
+                        animation="slideInUp"
+                        style={[styles.statusBanner, status.type === 'error' ? styles.error : styles.success]}
+                    >
+                        <Text style={styles.statusText}>{status.text}</Text>
+                    </Animatable.View>
+                )}
+            </ScrollView>
         </KeyboardAvoidingView>
     );
 }

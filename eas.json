@@ -35,6 +35,9 @@
       "autoIncrement": true,
       "distribution": "store",
       "channel": "production",
+      "android": {
+        "ndk": "25.2.9519653"
+      },
       "env": {
         "FIREBASE_API_KEY": "AIzaSyDkL7oXkM-Iy4_4i6GYh2zYWnd3YuhJbl8",
         "FIREBASE_AUTH_DOMAIN": "spartansattend-5c2c7.firebaseapp.com",

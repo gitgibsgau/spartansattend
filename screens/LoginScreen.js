@@ -88,6 +88,7 @@ export default function LoginScreen({ navigation }) {
 
       if (!userDocSnap.exists()) {
         showBanner('error', 'User data not found in database.');
+        setLoading(false);
         return;
       }
 
@@ -98,10 +99,11 @@ export default function LoginScreen({ navigation }) {
 
       if (registeredDeviceId && registeredDeviceId !== currentDeviceId) {
         showBanner('error', 'You can only log in from your registered device.');
+        setLoading(false);
         return;
       }
 
-      await SecureStore.setItemAsync('bound_device_id', currentDeviceId);
+      // await SecureStore.setItemAsync('bound_device_id', currentDeviceId);
 
       if (role === 'admin') {
         navigation.replace('AdminDashboard');

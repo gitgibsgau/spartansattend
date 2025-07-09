@@ -9,6 +9,7 @@
   },
   "dependencies": {
     "@expo-google-fonts/poppins": "^0.4.0",
+    "@react-native-async-storage/async-storage": "1.23.1",
     "@react-navigation/bottom-tabs": "6.5.17",
     "@react-navigation/drawer": "6.6.3",
     "@react-navigation/native": "6.1.18",
@@ -27,6 +28,7 @@
     "expo-modules-core": "~2.2.3",
     "expo-secure-store": "~14.0.1",
     "expo-sharing": "~13.0.1",
+    "expo-status-bar": "~2.0.1",
     "expo-updates": "~0.27.4",
     "firebase": "^10.14.1",
     "react": "18.3.1",
@@ -36,6 +38,7 @@
     "react-native-dotenv": "^3.4.11",
     "react-native-dropdown-picker": "^5.4.6",
     "react-native-gesture-handler": "~2.20.2",
+    "react-native-get-random-values": "~1.11.0",
     "react-native-permissions": "^5.4.1",
     "react-native-qrcode-svg": "^6.3.15",
     "react-native-reanimated": "~3.16.1",
@@ -43,6 +46,7 @@
     "react-native-screens": "~4.4.0",
     "react-native-svg": "15.8.0",
     "react-native-vector-icons": "^10.2.0",
+    "uuid": "^11.1.0",
     "xlsx": "^0.18.5"
   },
   "devDependencies": {

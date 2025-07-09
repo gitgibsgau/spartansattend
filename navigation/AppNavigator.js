@@ -1,7 +1,7 @@
-// navigation/AppNavigator.js
 import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
-import DrawerNavigator from './DrawerNavigator'; // 👈 New
+import HomeScreen from '../screens/HomeScreen';
+import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import AdminTabsNavigator from './AdminTabsNavigator';
 import StudentTabsNavigator from './StudentTabsNavigator';
@@ -16,8 +16,9 @@ const Stack = createNativeStackNavigator();
 
 export default function AppNavigator() {
   return (
-    <Stack.Navigator initialRouteName="Drawer">
-      <Stack.Screen name="Drawer" component={DrawerNavigator} options={{ headerShown: false }} />
+    <Stack.Navigator initialRouteName="Home">
+      <Stack.Screen name="Home" component={HomeScreen} options={{ headerShown: false }} />
+      <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
       <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
       <Stack.Screen name="AdminDashboard" component={AdminTabsNavigator} options={{ headerShown: false }} />
       <Stack.Screen name="StudentDashboard" component={StudentTabsNavigator} options={{ headerShown: false }} />

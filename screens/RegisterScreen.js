@@ -177,7 +177,7 @@ export default function RegisterScreen({ navigation }) {
 
               <Text style={styles.switchText}>
                 Already have an account?{' '}
-                <Text style={styles.link} onPress={() => navigation.navigate('Drawer', { screen: 'Login' })}>
+                <Text style={styles.link} onPress={() => navigation.navigate('Login')}>
                   Login
                 </Text>
               </Text>
