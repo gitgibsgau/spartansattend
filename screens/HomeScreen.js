@@ -56,16 +56,16 @@ export default function HomeScreen() {
           • Teach Dhol, Tasha, and Dhwaj
         </Section>
 
-        <Section title="Practice Info">
+        <Section title="Practice Information">
           • Starts in June every year{"\n"}
           • Schedule posted on Facebook and Instagram{"\n"}
           • Location: SJSU Event Center
         </Section>
 
-        <Section title="Events We Perform At">
+        <Section title="Events We Perform at:">
           • MMBA Ganpati{"\n"}
           • Radio Zindagi Ganpati{"\n"}
-          • Mission Pointe, Sunnyvale
+          • Mission Pointe, Golden Gate
         </Section>
 
         <Section title="Contact">
@@ -108,17 +108,18 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: '#ffffff',
+    paddingTop: 20,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 20,
-    paddingTop: 10,
+    paddingTop: 30,
   },
   logo: {
-    width: 45,
-    height: 45,
+    width: 70,
+    height: 70,
     resizeMode: 'contain',
   },
   loginBtn: {
