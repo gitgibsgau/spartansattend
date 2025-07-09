@@ -28,7 +28,9 @@
         "react": "18.3.1",
         "react-native": "0.76.9",
         "react-native-animatable": "^1.4.0",
+        "react-native-confetti-cannon": "^1.5.2",
         "react-native-dotenv": "^3.4.11",
+        "react-native-dropdown-picker": "^5.4.6",
         "react-native-gesture-handler": "~2.20.2",
         "react-native-permissions": "^5.4.1",
         "react-native-qrcode-svg": "^6.3.15",
@@ -1492,7 +1494,11 @@
 
     "react-native-animatable": ["react-native-animatable@1.4.0", "", { "dependencies": { "prop-types": "^15.8.1" } }, "sha512-DZwaDVWm2NBvBxf7I0wXKXLKb/TxDnkV53sWhCvei1pRyTX3MVFpkvdYBknNBqPrxYuAIlPxEp7gJOidIauUkw=="],
 
+    "react-native-confetti-cannon": ["react-native-confetti-cannon@1.5.2", "", {}, "sha512-IZuWjlW7QsdxEGNnvpD6W+7iKCCQhnd5BvuNvMtirU7Nxm8WS2N6LPGMBz1ZYDuusG+GRZkoXXTNCdoAAGpCTg=="],
+
     "react-native-dotenv": ["react-native-dotenv@3.4.11", "", { "dependencies": { "dotenv": "^16.4.5" }, "peerDependencies": { "@babel/runtime": "^7.20.6" } }, "sha512-6vnIE+WHABSeHCaYP6l3O1BOEhWxKH6nHAdV7n/wKn/sciZ64zPPp2NUdEUf1m7g4uuzlLbjgr+6uDt89q2DOg=="],
+
+    "react-native-dropdown-picker": ["react-native-dropdown-picker@5.4.6", "", { "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-T1XBHbE++M6aRU3wFYw3MvcOuabhWZ29RK/Ivdls2r1ZkZ62iEBZknLUPeVLMX3x6iUxj4Zgr3X2DGlEGXeHsA=="],
 
     "react-native-gesture-handler": ["react-native-gesture-handler@2.20.2", "", { "dependencies": { "@egjs/hammerjs": "^2.0.17", "hoist-non-react-statics": "^3.3.0", "invariant": "^2.2.4", "prop-types": "^15.7.2" }, "peerDependencies": { "react": "*", "react-native": "*" } }, "sha512-HqzFpFczV4qCnwKlvSAvpzEXisL+Z9fsR08YV5LfJDkzuArMhBu2sOoSPUF/K62PCoAb+ObGlTC83TKHfUd0vg=="],
 

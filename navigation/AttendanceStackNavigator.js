@@ -39,7 +39,7 @@ export default function AttendanceStackNavigator() {
         name="ManualEntry"
         component={ManualEntryScreen}
         options={{
-          headerTitle: () => <HeaderTitle title="Enter Session Code" />,
+          headerTitle: () => <HeaderTitle title="Mark Your Attendance" />,
           headerBackTitleVisible: false,
         }}
       />

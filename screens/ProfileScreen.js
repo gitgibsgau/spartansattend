@@ -1,9 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, Alert, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
 import { auth, db } from '../firebase';
-import { doc, getDoc, updateDoc } from 'firebase/firestore';
+import {
+    doc,
+    getDoc,
+    collection,
+    query,
+    where,
+    getDocs
+} from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
+import ConfettiCannon from 'react-native-confetti-cannon';
 import {
     useFonts,
     Poppins_600SemiBold,
@@ -14,6 +22,9 @@ import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 export default function ProfileScreen({ navigation }) {
     const [user, setUser] = useState(null);
     const [status, setStatus] = useState({ show: false, type: '', text: '' });
+    const [modalVisible, setModalVisible] = useState(false);
+    const [parikshanReleased, setParikshanReleased] = useState(false);
+    const [showConfetti, setShowConfetti] = useState(false);
 
     const [fontsLoaded] = useFonts({
         Poppins_600SemiBold,
@@ -22,12 +33,59 @@ export default function ProfileScreen({ navigation }) {
 
     useEffect(() => {
         const loadUser = async () => {
-            const userRef = doc(db, 'users', auth.currentUser.uid);
-            const userSnap = await getDoc(userRef);
-            if (userSnap.exists()) {
-                setUser(userSnap.data());
+            try {
+                const uid = auth.currentUser.uid;
+                const userRef = doc(db, 'users', uid);
+                const userSnap = await getDoc(userRef);
+
+                const settingsRef = doc(db, 'globalConfig', 'parikshanSettings');
+                const settingsSnap = await getDoc(settingsRef);
+                const isReleased = settingsSnap.exists() && settingsSnap.data().parikshanReleased === true;
+                setParikshanReleased(isReleased);
+
+                if (userSnap.exists()) {
+                    const userData = userSnap.data();
+
+                    const attendanceQuery = query(
+                        collection(db, 'attendance'),
+                        where('studentId', '==', uid)
+                    );
+                    const attendanceSnap = await getDocs(attendanceQuery);
+
+                    const scoreRef = doc(db, 'parikshanScores', uid);
+                    const scoreSnap = await getDoc(scoreRef);
+                    let averageScore = null;
+                    let detailedScores = {};
+
+                    if (scoreSnap.exists()) {
+                        const data = scoreSnap.data();
+                        const values = ['dhol', 'maintenance', 'dhwaj', 'tasha']
+                            .filter(k => k in data && typeof data[k] === 'number')
+                            .map(k => data[k]);
+                        if (values.length > 0) {
+                            averageScore = values.reduce((a, b) => a + b, 0) / values.length;
+                        }
+                        detailedScores = data;
+                    }
+
+                    if (isReleased && averageScore !== null) {
+                        setShowConfetti(true); // trigger once when visible
+                    }
+
+                    setUser({
+                        ...userData,
+                        id: uid,
+                        attendanceCount: attendanceSnap.size,
+                        averageScore,
+                        detailedScores,
+                    });
+                }
+            } catch (error) {
+                console.error('Failed to load user data:', error);
+                showBanner('error', 'Failed to load profile.');
             }
         };
+
         loadUser();
     }, []);
 
@@ -36,20 +94,9 @@ export default function ProfileScreen({ navigation }) {
         setTimeout(() => setStatus({ show: false, type: '', text: '' }), 3000);
     };
 
-    const handleRebindRequest = async () => {
-        const userRef = doc(db, 'users', auth.currentUser.uid);
-        const userSnap = await getDoc(userRef);
-        if (userSnap.exists()) {
-            const userData = userSnap.data();
-            if (userData.rebindRequest) {
-                return showBanner('error', 'You already have a pending request.');
-            }
-            await updateDoc(userRef, { rebindRequest: true });
-            showBanner('success', 'Device rebind request submitted.');
-        }
-    };
-
     if (!fontsLoaded || !user) return null;
+
+    const hasScores = user.averageScore != null;
 
     return (
         <AppBackgroundWrapper>
@@ -61,29 +108,81 @@ export default function ProfileScreen({ navigation }) {
                 </View>
 
                 <View style={styles.card}>
-                    <Text style={styles.cardLabel}>Student ID</Text>
-                    <Text style={styles.cardValue}>{user.sid || 'N/A'}</Text>
-                </View>
-
-                <View style={styles.card}>
                     <Text style={styles.cardLabel}>Total Attendance</Text>
-                    <Text style={styles.cardValue}>{user.sid || 'N/A'}</Text>
+                    <Text style={styles.cardValue}>{user.attendanceCount ?? '0'}</Text>
+                </View>
+
+                {/* 🎓 Results pending */}
+                {hasScores && !parikshanReleased && (
+                    <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
+                        <Text style={styles.pendingText}>🎓 Parikshan results will be available soon.</Text>
+                    </Animatable.View>
+                )}
+
+                {/* ✅ Show if scores are released */}
+                {hasScores && parikshanReleased && (
+                    <>
+                        <TouchableOpacity
+                            style={styles.card}
+                            onPress={() => setModalVisible(true)}
+                            activeOpacity={0.7}
+                        >
+                            <Text style={styles.cardLabel}>Parikshan Score</Text>
+                            <View style={styles.cardRow}>
+                                <Text style={styles.cardValue}>{user.averageScore.toFixed(1)} / 10</Text>
+                                <Icon name="chevron-forward-outline" size={20} color="#64748b" />
+                            </View>
+                        </TouchableOpacity>
+
+                        {showConfetti && (
+                            <ConfettiCannon
+                                count={50}
+                                origin={{ x: 200, y: -20 }}
+                                fadeOut
+                                explosionSpeed={300}
+                            />
+                        )}
+                    </>
+                )}
+
+                <View style={styles.card}>
+                    <Text style={styles.cardLabel}>Device</Text>
+                    <Text style={styles.cardValue}>{user.deviceId || 'N/A'}</Text>
                 </View>
 
                 <View style={styles.card}>
-                    <Text style={styles.cardLabel}>Events Allocated</Text>
-                    <Text style={styles.cardValue}>{user.sid || 'N/A'}</Text>
+                    <Text style={styles.cardLabel}>Joined</Text>
+                    <Text style={styles.cardValue}>
+                        {user.createdAt
+                            ? new Date(user.createdAt).toLocaleDateString(undefined, {
+                                  year: 'numeric',
+                                  month: 'long',
+                                  day: 'numeric',
+                              })
+                            : 'N/A'}
+                    </Text>
                 </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.cardLabel}>Placeholder</Text>
-                    <Text style={styles.cardValue}>{user.sid || 'N/A'}</Text>
-                </View>
-
-                {/* <TouchableOpacity style={styles.rebindButton} onPress={handleRebindRequest}>
-                    <Icon name="refresh-circle-outline" size={22} color="white" />
-                    <Text style={styles.rebindText}>Request Device Rebind</Text>
-                </TouchableOpacity> */}
+                <Modal visible={modalVisible} transparent animationType="slide">
+                    <View style={styles.modalBackdrop}>
+                        <View style={styles.modalContent}>
+                            <Text style={styles.modalTitle}>Parikshan Breakdown</Text>
+                            {['dhol', 'maintenance', 'dhwaj', 'tasha'].map((key) => (
+                                key in user.detailedScores && (
+                                    <Text key={key} style={styles.modalItem}>
+                                        {key.charAt(0).toUpperCase() + key.slice(1)}: {user.detailedScores[key]} / 10
+                                    </Text>
+                                )
+                            ))}
+                            <TouchableOpacity
+                                style={styles.modalCloseButton}
+                                onPress={() => setModalVisible(false)}
+                            >
+                                <Text style={styles.modalCloseText}>Close</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </Modal>
 
                 {status.show && (
                     <Animatable.View
@@ -145,42 +244,25 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins_600SemiBold',
         color: '#1e293b',
     },
-    rebindButton: {
+    cardRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#4F46E5',
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 12,
-        gap: 8,
-        marginBottom: 16,
-        shadowColor: '#000',
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        elevation: 2,
+        justifyContent: 'space-between',
     },
-    rebindText: {
-        color: '#fff',
-        fontFamily: 'Poppins_600SemiBold',
-        fontSize: 16,
+    pendingBanner: {
+        width: '100%',
+        backgroundColor: '#fff7ed',
+        borderLeftColor: '#f97316',
+        borderLeftWidth: 6,
+        padding: 12,
+        borderRadius: 10,
+        marginBottom: 24,
     },
-    logoutButton: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        backgroundColor: '#DC2626',
-        paddingVertical: 12,
-        paddingHorizontal: 24,
-        borderRadius: 12,
-        gap: 8,
-        shadowColor: '#000',
-        shadowOpacity: 0.08,
-        shadowRadius: 4,
-        elevation: 2,
-    },
-    logoutText: {
-        color: '#fff',
-        fontFamily: 'Poppins_600SemiBold',
-        fontSize: 16,
+    pendingText: {
+        fontSize: 14,
+        fontFamily: 'Poppins_400Regular',
+        color: '#92400e',
+        textAlign: 'center',
     },
     statusBanner: {
         position: 'absolute',
@@ -196,6 +278,7 @@ const styles = StyleSheet.create({
         shadowRadius: 6,
         elevation: 3,
         zIndex: 100,
+        backgroundColor: '#fff',
     },
     statusText: {
         fontSize: 15,
@@ -209,5 +292,42 @@ const styles = StyleSheet.create({
     success: {
         backgroundColor: '#d1fae5',
         borderLeftColor: '#059669',
+    },
+    modalBackdrop: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        backgroundColor: '#fff',
+        padding: 20,
+        borderRadius: 12,
+        width: '80%',
+        alignItems: 'center',
+    },
+    modalTitle: {
+        fontSize: 20,
+        fontFamily: 'Poppins_600SemiBold',
+        marginBottom: 12,
+        color: '#1e293b',
+    },
+    modalItem: {
+        fontSize: 16,
+        fontFamily: 'Poppins_400Regular',
+        color: '#334155',
+        marginVertical: 4,
+    },
+    modalCloseButton: {
+        marginTop: 16,
+        backgroundColor: '#4f46e5',
+        paddingVertical: 10,
+        paddingHorizontal: 24,
+        borderRadius: 8,
+    },
+    modalCloseText: {
+        color: '#fff',
+        fontFamily: 'Poppins_600SemiBold',
+        fontSize: 16,
     },
 });

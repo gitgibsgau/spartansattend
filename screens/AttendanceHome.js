@@ -41,7 +41,7 @@ export default function AttendanceHome({ navigation, route }) {
     <AppBackgroundWrapper>
       <View style={styles.container}>
         <Card
-          title="Enter Session Code"
+          title="Mark Your Attendance"
           iconName="qr-code-outline"
           onPress={() => navigation.navigate('ManualEntry')}
           delay={200}

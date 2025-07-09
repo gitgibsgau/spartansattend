@@ -8,12 +8,15 @@ import {
   Linking,
   SafeAreaView,
   StatusBar,
-  Animated,
+  Image,
 } from 'react-native';
 import { FontAwesome } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import { useFonts, Poppins_600SemiBold, Poppins_400Regular } from '@expo-google-fonts/poppins';
 
 export default function HomeScreen() {
+  const navigation = useNavigation();
+
   const handleOpenURL = (url) => {
     Linking.openURL(url).catch((err) =>
       console.error('Failed to open URL:', err)
@@ -29,7 +32,14 @@ export default function HomeScreen() {
 
   return (
     <SafeAreaView style={styles.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#e0f2fe" />
+      <StatusBar barStyle="dark-content" backgroundColor="#ffffff" />
+      <View style={styles.headerRow}>
+        <Image source={require('../assets/icon.png')} style={styles.logo} />
+        <Pressable style={styles.loginBtn} onPress={() => navigation.navigate('Login')}>
+          <Text style={styles.loginText}>Login</Text>
+        </Pressable>
+      </View>
+
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
         <View style={styles.headerBox}>
           <Text style={styles.heading}>MMBA Spartans</Text>
@@ -55,7 +65,7 @@ export default function HomeScreen() {
         <Section title="Events We Perform At">
           • MMBA Ganpati{"\n"}
           • Radio Zindagi Ganpati{"\n"}
-          • Mission Pointe, Sunnyvale{"\n"}
+          • Mission Pointe, Sunnyvale
         </Section>
 
         <Section title="Contact">
@@ -79,10 +89,7 @@ export default function HomeScreen() {
             <FontAwesome name="instagram" size={36} color="#E4405F" />
             <Text style={styles.socialText}>Instagram</Text>
           </Pressable>
-
         </View>
-
-
       </ScrollView>
     </SafeAreaView>
   );
@@ -101,6 +108,29 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: '#ffffff',
+  },
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingTop: 10,
+  },
+  logo: {
+    width: 45,
+    height: 45,
+    resizeMode: 'contain',
+  },
+  loginBtn: {
+    backgroundColor: '#0F52BA',
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+  },
+  loginText: {
+    color: 'white',
+    fontSize: 14,
+    fontFamily: 'Poppins_600SemiBold',
   },
   container: {
     flexGrow: 1,

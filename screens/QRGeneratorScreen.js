@@ -62,7 +62,7 @@ export default function QRGeneratorScreen() {
         createdBy: auth.currentUser.uid,
         code,
         timestamp: Timestamp.now(),
-        expiresAt: Timestamp.fromDate(new Date(Date.now() + 4 * 60 * 60 * 1000)) // 4 hours
+        expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 60 * 1000)) // 30 minutes
       });
 
       setSessionId(docRef.id);

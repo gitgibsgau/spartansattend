@@ -8,6 +8,7 @@ import ResetDevice from '../screens/ResetDevice';
 import RebindRequests from '../screens/RebindRequests';
 import Icon from 'react-native-vector-icons/Ionicons';
 import DummyLogoutScreen from '../screens/DummyLogoutScreen';
+import AdminParikshanScreen from '../screens/AdminParikshanScreen';
 
 const Tab = createBottomTabNavigator();
 
@@ -40,6 +41,15 @@ export default function AdminTabsNavigator() {
       <Tab.Screen name="Home" component={AdminHomeScreen} />
       <Tab.Screen name="QR Generator" component={QRGeneratorScreen} />
       <Tab.Screen name="Attendance" component={AttendanceViewScreen} />
+      <Tab.Screen
+        name="Parikshan"
+        component={AdminParikshanScreen}
+        options={{
+          tabBarIcon: ({ color, size }) => (
+            <Icon name="create-outline" size={size} color={color} />
+          ),
+        }}
+      />
       <Tab.Screen name="Events" component={EventsScreen} />
       {/* <Tab.Screen name="Reset" component={ResetDevice} />
       <Tab.Screen name="Rebind" component={RebindRequests} /> */}

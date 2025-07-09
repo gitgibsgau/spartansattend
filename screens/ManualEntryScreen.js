@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -9,7 +9,15 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
-import { collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
+import {
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
+  addDoc,
+  Timestamp,
+} from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { checkLocationAccessAndProximity } from '../utils/locationUtils';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -23,6 +31,7 @@ import {
 
 export default function ManualEntryScreen() {
   const [code, setCode] = useState('');
+  const [sessionId, setSessionId] = useState(null);
   const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
   const buttonRef = useRef(null);
@@ -40,67 +49,73 @@ export default function ManualEntryScreen() {
     setTimeout(() => setShowStatus(false), 3000);
   };
 
+  useEffect(() => {
+    const fetchLatestSession = async () => {
+      try {
+        const now = Timestamp.now();
+        const sessionQuery = query(
+          collection(db, 'sessions'),
+          where('expiresAt', '>', now),
+          orderBy('expiresAt', 'desc')
+        );
+        const snapshot = await getDocs(sessionQuery);
+        if (!snapshot.empty) {
+          const doc = snapshot.docs[0];
+          const data = doc.data();
+          setCode(data.code?.toUpperCase() || '');
+          setSessionId(doc.id);
+        } else {
+          showBanner('error', 'No valid session available.');
+        }
+      } catch (err) {
+        console.error('Error fetching session:', err);
+        showBanner('error', 'Failed to load session.');
+      }
+    };
+
+    fetchLatestSession();
+  }, []);
+
   const handleSubmit = async () => {
-    if (loading) return;
-    if (showStatus) setShowStatus(false);
-    if (!code.trim()) {
-      showBanner('error', 'Enter the session code.');
-      return;
-    }
+    if (loading || !sessionId || !code) return;
 
     buttonRef.current?.pulse(300);
     setLoading(true);
 
     try {
-      // Step 1: Validate session
-      const sessionQuery = query(
-        collection(db, 'sessions'),
-        where('code', '==', code.trim().toUpperCase())
-      );
-      const sessionSnapshot = await getDocs(sessionQuery);
-
-      if (sessionSnapshot.empty) {
-        showBanner('error', 'No session found for this code.');
-        return;
-      }
-
-      const session = sessionSnapshot.docs[0];
-      const sessionData = session.data();
-      const sessionId = session.id;
-
-      if (sessionData.code.toUpperCase() !== code.trim().toUpperCase()) {
-        showBanner('error', 'Entered code does not match the session.');
-        setLoading(false);
-        return;
-      }
-
       const now = Timestamp.now();
-      if (sessionData.expiresAt && sessionData.expiresAt.toMillis() < now.toMillis()) {
-        showBanner('error', 'This session code has expired.');
-        setLoading(false);
+      const sessionDoc = await getDocs(
+        query(collection(db, 'sessions'), where('code', '==', code))
+      );
+
+      if (sessionDoc.empty) {
+        showBanner('error', 'Session not found.');
         return;
       }
 
-      // ✅ Step 2: Now check location
+      const sessionData = sessionDoc.docs[0].data();
+      if (sessionData.expiresAt.toMillis() < now.toMillis()) {
+        showBanner('error', 'This session has expired.');
+        return;
+      }
+
       const { withinRadius, distance } = await checkLocationAccessAndProximity();
       if (!withinRadius) {
         showBanner(
           'error',
-          `You're ${Math.round(distance)}meter/s away. Must be within 100 meters.`
+          `You're ${Math.round(distance)}m away. Must be within 100m.`
         );
-        setLoading(false);
         return;
       }
 
-      // Step 3: Check if already marked
       const attendanceQuery = query(
         collection(db, 'attendance'),
         where('sessionId', '==', sessionId),
         where('studentId', '==', auth.currentUser.uid)
       );
-      const attendanceSnapshot = await getDocs(attendanceQuery);
+      const attendanceSnap = await getDocs(attendanceQuery);
 
-      if (!attendanceSnapshot.empty) {
+      if (!attendanceSnap.empty) {
         showBanner('error', 'You already marked attendance.');
       } else {
         await addDoc(collection(db, 'attendance'), {
@@ -109,12 +124,10 @@ export default function ManualEntryScreen() {
           markedAt: Timestamp.now(),
         });
         showBanner('success', 'Attendance marked successfully!');
-        setCode('');
       }
-
-    } catch (error) {
-      console.error(error);
-      showBanner('error', error?.message || 'Something went wrong. Try again.');
+    } catch (err) {
+      console.error(err);
+      showBanner('error', 'Something went wrong.');
     } finally {
       setLoading(false);
     }
@@ -130,7 +143,7 @@ export default function ManualEntryScreen() {
       >
         <Animatable.View animation="fadeInUp" duration={700} style={styles.card}>
           <Icon name="qr-code-outline" size={40} color="#4F46E5" style={{ marginBottom: 10 }} />
-          <Text style={styles.label}>Enter Session Code</Text>
+          <Text style={styles.label}>Session Code</Text>
 
           <Animatable.View
             ref={inputRef}
@@ -140,15 +153,8 @@ export default function ManualEntryScreen() {
           >
             <TextInput
               value={code}
-              onChangeText={(text) => {
-                setCode(text);
-                if (showStatus) setShowStatus(false);
-              }}
-              autoCapitalize="characters"
-              placeholder="e.g. A72KQ9"
-              style={styles.input}
-              maxLength={6}
-              onFocus={() => inputRef.current?.bounce()}
+              editable={false}
+              style={[styles.input, { backgroundColor: '#e2e8f0' }]}
               placeholderTextColor="#94a3b8"
             />
           </Animatable.View>
@@ -159,7 +165,7 @@ export default function ManualEntryScreen() {
             <Animatable.View ref={buttonRef} useNativeDriver>
               <TouchableOpacity style={styles.button} onPress={handleSubmit}>
                 <Icon name="checkmark-circle-outline" size={22} color="white" />
-                <Text style={styles.buttonText}>Submit</Text>
+                <Text style={styles.buttonText}>Mark Attendance</Text>
               </TouchableOpacity>
             </Animatable.View>
           )}
@@ -218,7 +224,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
     textTransform: 'uppercase',
-    backgroundColor: '#f8fafc',
     color: '#1f2937',
     fontFamily: 'Poppins_400Regular',
   },
