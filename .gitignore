@@ -49,3 +49,6 @@ firebase-debug.log
 
 # Gitignore backups
 *.orig
+
+# EAS config file
+eas.json
