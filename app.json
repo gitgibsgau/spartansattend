@@ -2,7 +2,7 @@
   "expo": {
     "name": "SpartansAttend",
     "slug": "spartans-attend",
-    "version": "2.1.0",
+    "version": "2.2.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "scheme": "spartansattend",
@@ -21,7 +21,7 @@
     ],
     "ios": {
       "bundleIdentifier": "com.gaurav.spartansattend",
-      "buildNumber": "5.0.0",
+      "buildNumber": "6.0.0",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to scan attendance QR codes.",
         "NSLocationWhenInUseUsageDescription": "This app uses your location to verify proximity during attendance marking.",
@@ -31,7 +31,7 @@
     },
     "android": {
       "package": "com.gaurav.spartansattend",
-      "versionCode": 5,
+      "versionCode": 6,
       "targetSdkVersion": 35,
       "permissions": [
         "CAMERA",
