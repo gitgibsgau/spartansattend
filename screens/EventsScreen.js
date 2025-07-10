@@ -1,9 +1,8 @@
 // screens/EventsScreen.js
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/Ionicons';
-import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 
 export default function EventsScreen() {
   return (

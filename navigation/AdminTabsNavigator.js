@@ -3,7 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import AdminHomeScreen from '../screens/AdminHomeScreen';
 import QRGeneratorScreen from '../screens/QRGeneratorScreen';
 import EventsScreen from '../screens/EventsScreen';
-import AttendanceViewScreen from '../screens/AttendanceViewScreen';
+import AttendanceStackNavigator from './AttendanceStackNavigator';
 import ResetDevice from '../screens/ResetDevice';
 import RebindRequests from '../screens/RebindRequests';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -40,7 +40,7 @@ export default function AdminTabsNavigator() {
     >
       <Tab.Screen name="Home" component={AdminHomeScreen} />
       <Tab.Screen name="QR Generator" component={QRGeneratorScreen} />
-      <Tab.Screen name="Attendance" component={AttendanceViewScreen} />
+      <Tab.Screen name="Attendance" component={AttendanceStackNavigator} />
       <Tab.Screen
         name="Parikshan"
         component={AdminParikshanScreen}

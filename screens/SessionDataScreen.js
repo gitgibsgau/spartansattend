@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
-  Alert,
   Platform,
 } from 'react-native';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';

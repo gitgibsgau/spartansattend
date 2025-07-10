@@ -14,7 +14,6 @@ import {
 import * as Haptics from 'expo-haptics';
 import * as Animatable from 'react-native-animatable';
 import * as Device from 'expo-device';
-import * as SecureStore from 'expo-secure-store';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';

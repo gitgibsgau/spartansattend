@@ -7,7 +7,7 @@ import {
   StyleSheet,
 } from 'react-native';
 import { auth } from '../firebase';
-import { useFocusEffect, CommonActions } from '@react-navigation/native';
+import { useFocusEffect } from '@react-navigation/native';
 import * as Animatable from 'react-native-animatable';
 import { Ionicons } from '@expo/vector-icons';
 import {

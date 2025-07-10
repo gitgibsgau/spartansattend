@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, Alert, StyleSheet, ActivityIndicator, TouchableOpacity } from 'react-native';
-import { Camera, CameraType, BarCodeScanner } from 'expo-camera';
+import { Camera, BarCodeScanner } from 'expo-camera';
 import { addDoc, collection, Timestamp, query, where, getDocs } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 
