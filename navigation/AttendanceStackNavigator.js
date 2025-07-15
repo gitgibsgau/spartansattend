@@ -5,6 +5,7 @@ import ManualEntryScreen from '../screens/ManualEntryScreen';
 import AttendanceViewScreen from '../screens/AttendanceViewScreen';
 import { Text, StyleSheet } from 'react-native';
 import { useFonts, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
+import SessionDataScreen from '../screens/SessionDataScreen'; // ✅ Add this line
 
 const Stack = createNativeStackNavigator();
 
@@ -48,6 +49,14 @@ export default function AttendanceStackNavigator() {
         component={AttendanceViewScreen}
         options={{
           headerTitle: () => <HeaderTitle title="Your Attendance" />,
+          headerBackTitleVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="SessionDataScreen" // ✅ Register here
+        component={SessionDataScreen}
+        options={{
+          headerTitle: () => <HeaderTitle title="Session Data" />,
           headerBackTitleVisible: false,
         }}
       />

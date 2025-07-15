@@ -110,6 +110,7 @@ export default function AttendanceViewScreen({ navigation }) {
   const renderCard = ({ item }) => (
     <TouchableOpacity
       onPress={() => navigation.navigate('SessionDataScreen', { sessionId: item.sessionId, role })}
+      disabled={role === 'student'}
     >
       <Animatable.View animation="fadeInUp" style={[styles.card, { width: cardWidth }]}>
         <Icon name="calendar-outline" size={30} color="#4ADE80" />

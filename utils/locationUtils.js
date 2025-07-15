@@ -4,7 +4,7 @@ import { Alert } from 'react-native';
 // Spartan location and allowed radius
 const ALLOWED_LAT = 37.335382;
 const ALLOWED_LNG = -121.879835;
-const RADIUS_METERS = 100;
+const RADIUS_METERS = 200;
 
 const getDistanceInMeters = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3;

@@ -7,7 +7,8 @@ import {
     collection,
     query,
     where,
-    getDocs
+    getDocs,
+    setDoc
 } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
@@ -51,6 +52,8 @@ export default function ProfileScreen({ navigation }) {
                         where('studentId', '==', uid)
                     );
                     const attendanceSnap = await getDocs(attendanceQuery);
+                    const sessionsSnap = await getDocs(collection(db, 'sessions'));
+                    const sessionCount = sessionsSnap.size;
 
                     const scoreRef = doc(db, 'parikshanScores', uid);
                     const scoreSnap = await getDoc(scoreRef);
@@ -59,28 +62,49 @@ export default function ProfileScreen({ navigation }) {
 
                     if (scoreSnap.exists()) {
                         const data = scoreSnap.data();
-                        const values = ['dhol1', 'dhol2', 'maintenance', 'dhwaj', 'tasha']
-                            .filter(k => k in data && typeof data[k] === 'number')
-                            .map(k => data[k]);
-                        if (values.length > 0) {
-                            dholAvg = (data.dhol1 + data.dhol2) / 2;
+                        let values = [];
+
+                        // Handle Dhol only if both scores exist
+                        if (typeof data.dhol1 === 'number' && typeof data.dhol2 === 'number') {
+                            const dholAvg = (data.dhol1 + data.dhol2) / 2;
                             values.push(dholAvg);
+                        }
+
+                        // Handle other individual fields
+                        ['maintenance', 'dhwaj', 'tasha'].forEach(key => {
+                            if (typeof data[key] === 'number') {
+                                values.push(data[key]);
+                            }
+                        });
+
+                        if (values.length > 0) {
                             averageScore = values.reduce((a, b) => a + b, 0) / values.length;
                         }
+
                         detailedScores = data;
                     }
 
+                    let shouldShowConfetti = false;
+
                     if (isReleased && averageScore !== null) {
-                        setShowConfetti(true); // trigger once when visible
+                        if (!userSnap.data()?.confettiShown) {
+                            shouldShowConfetti = true;
+                            await setDoc(userRef, { confettiShown: true }, { merge: true });
+                        }
                     }
 
                     setUser({
                         ...userData,
                         id: uid,
                         attendanceCount: attendanceSnap.size,
+                        sessionsCount: sessionCount,
                         averageScore,
                         detailedScores,
                     });
+
+                    if (shouldShowConfetti) {
+                        setTimeout(() => setShowConfetti(true), 1000); // 🎉 delay before celebration!
+                    }
                 }
             } catch (error) {
                 console.error('Failed to load user data:', error);
@@ -111,7 +135,17 @@ export default function ProfileScreen({ navigation }) {
 
                 <View style={styles.card}>
                     <Text style={styles.cardLabel}>Total Attendance</Text>
-                    <Text style={styles.cardValue}>{user.attendanceCount ?? '0'}</Text>
+                    <Text style={styles.cardValue}>{user.attendanceCount ?? '0'} out of {user.sessionsCount}</Text>
+                    <Text style={styles.cardLabel}>Attendance %</Text>
+                    <Text style={styles.cardValue}>
+                        {user.attendanceCount > 0
+                            ? `${((user.attendanceCount / user.sessionsCount) * 100).toFixed(1)}%`
+                            : '0%'}
+                    </Text>
+                    {/* add reminder about 80% attendance to be eligble for event allocations */}
+                    <Text style={styles.amberNote}>
+                        Note: 80% attendance is required for event allocations.
+                    </Text>
                 </View>
 
                 {/* 🎓 Results pending */}
@@ -125,7 +159,7 @@ export default function ProfileScreen({ navigation }) {
                 {hasScores && parikshanReleased && (
                     <>
                         <TouchableOpacity
-                            style={styles.card}
+                            style={[styles.card, parikshanReleased && hasScores ? styles.releasedScoreCard : null]}
                             onPress={() => setModalVisible(true)}
                             activeOpacity={0.7}
                         >
@@ -134,6 +168,12 @@ export default function ProfileScreen({ navigation }) {
                                 <Text style={styles.cardValue}>{user.averageScore.toFixed(1)} / 10</Text>
                                 <Icon name="chevron-forward-outline" size={20} color="#64748b" />
                             </View>
+                            {/* 👇 Add this block inside the TouchableOpacity */}
+                            {Object.keys(user.detailedScores).length < 5 && (
+                                <Text style={styles.partialNote}>
+                                    Score based on completed categories only
+                                </Text>
+                            )}
                         </TouchableOpacity>
 
                         {showConfetti && (
@@ -169,19 +209,20 @@ export default function ProfileScreen({ navigation }) {
                     <View style={styles.modalBackdrop}>
                         <View style={styles.modalContent}>
                             <Text style={styles.modalTitle}>Parikshan Breakdown</Text>
-                            {user.detailedScores?.dhol1 !== undefined && user.detailedScores?.dhol2 !== undefined && (
-                                <Text style={styles.modalItem}>
-                                    Dhol (Average): {((
-                                        (user.detailedScores.dhol1 + user.detailedScores.dhol2) / 2
-                                    ).toFixed(1))} / 10
-                                </Text>
-                            )}
+
+                            <Text style={styles.modalItem}>
+                                Dhol (Average): {(typeof user.detailedScores?.dhol1 === 'number' && typeof user.detailedScores?.dhol2 === 'number')
+                                    ? ((user.detailedScores.dhol1 + user.detailedScores.dhol2) / 2).toFixed(1) + ' / 10'
+                                    : 'N/A'}
+                            </Text>
+
                             {['maintenance', 'dhwaj', 'tasha'].map((key) => (
-                                key in user.detailedScores && (
-                                    <Text key={key} style={styles.modalItem}>
-                                        {key.charAt(0).toUpperCase() + key.slice(1)}: {user.detailedScores[key]} / 10
-                                    </Text>
-                                )
+                                <Text key={key} style={styles.modalItem}>
+                                    {key.charAt(0).toUpperCase() + key.slice(1)}:{' '}
+                                    {typeof user.detailedScores?.[key] === 'number'
+                                        ? `${user.detailedScores[key]} / 10`
+                                        : 'N/A'}
+                                </Text>
                             ))}
                             <TouchableOpacity
                                 style={styles.modalCloseButton}
@@ -252,6 +293,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontFamily: 'Poppins_600SemiBold',
         color: '#1e293b',
+        marginBottom: 8,
     },
     cardRow: {
         flexDirection: 'row',
@@ -338,5 +380,24 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontFamily: 'Poppins_600SemiBold',
         fontSize: 16,
+    },
+    partialNote: {
+        fontSize: 12,
+        fontFamily: 'Poppins_400Regular',
+        color: '#64748b',
+        marginTop: 4,
+        fontStyle: 'italic',
+    },
+    amberNote: {
+        fontSize: 12,
+        fontFamily: 'Poppins_400Regular',
+        color: '#b45309', // red '#b45309',
+        marginTop: 8,
+        fontStyle: 'bold',
+    },
+    releasedScoreCard: {
+        backgroundColor: '#e0f2fe', // Tailwind sky-100
+        borderLeftWidth: 4,
+        borderLeftColor: '#0284c7', // Tailwind sky-600
     },
 });

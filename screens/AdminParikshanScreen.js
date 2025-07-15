@@ -323,7 +323,7 @@ export default function AdminParikshanScreen() {
                             )}
 
                             <TouchableOpacity
-                                style={[styles.saveButton, { backgroundColor: '#ccc', marginTop: 16 }]}
+                                style={[styles.saveButton, { backgroundColor: '#4F46E5', marginTop: 16 }]}
                                 onPress={() => setModalVisible(false)}
                             >
                                 <Text style={styles.saveText}>Close</Text>

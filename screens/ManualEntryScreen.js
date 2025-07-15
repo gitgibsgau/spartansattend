@@ -104,7 +104,7 @@ export default function ManualEntryScreen() {
       if (!withinRadius) {
         showBanner(
           'error',
-          `You're ${Math.round(distance)}m away. Must be within 100m.`
+          `You're ${Math.round(distance)}m away. Must be within 200m.`
         );
         return;
       }

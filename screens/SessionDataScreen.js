@@ -124,17 +124,19 @@ export default function SessionDataScreen({ route }) {
           </TouchableOpacity>
         )}
 
-        <FlatList
-          data={data}
-          keyExtractor={(item, index) => `${item.email}-${index}`}
-          renderItem={({ item }) => (
-            <Animatable.View animation="fadeInUp" delay={100} style={styles.card}>
-              <Text style={styles.email}>📧 {item.email}</Text>
-              <Text style={styles.timestamp}>🕒 {item.timestamp}</Text>
-            </Animatable.View>
-          )}
-          contentContainerStyle={{ paddingBottom: 100 }}
-        />
+        {role === 'admin' && (
+          <FlatList
+            data={data}
+            keyExtractor={(item, index) => `${item.email}-${index}`}
+            renderItem={({ item }) => (
+              <Animatable.View animation="fadeInUp" delay={100} style={styles.card}>
+                <Text style={styles.email}>📧 {item.email}</Text>
+                <Text style={styles.timestamp}>🕒 {item.timestamp}</Text>
+              </Animatable.View>
+            )}
+            contentContainerStyle={{ paddingBottom: 100 }}
+          />
+        )}
 
         {statusBanner.show && (
           <Animatable.View
