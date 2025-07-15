@@ -148,18 +148,34 @@ export default function ProfileScreen({ navigation }) {
                     </Text>
                 </View>
 
-                {/* 🎓 Results pending */}
+                {/* 🎓 Results pending, and student took Parikshan */}
                 {hasScores && !parikshanReleased && (
                     <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
                         <Text style={styles.pendingText}>🎓 Parikshan results will be available soon.</Text>
                     </Animatable.View>
                 )}
 
-                {/* ✅ Show if scores are released */}
+                {/* ❌ Didn’t take Parikshan, and results not released */}
+                {!hasScores && !parikshanReleased && (
+                    <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
+                        <Text style={styles.pendingText}>You did not take the Parikshan.</Text>
+                        <Text style={styles.pendingSubText}>Please reach out to your Lead or Season Manager if you believe this is a mistake.</Text>
+                    </Animatable.View>
+                )}
+
+                {/* ❌ Didn’t take Parikshan, and results released */}
+                {!hasScores && parikshanReleased && (
+                    <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
+                        <Text style={styles.pendingText}>You did not take the Parikshan. No scores available.</Text>
+                        <Text style={styles.pendingSubText}>Please reach out to your Lead or Season Manager if you believe this is a mistake.</Text>
+                    </Animatable.View>
+                )}
+
+                {/* ✅ Took Parikshan, and results released */}
                 {hasScores && parikshanReleased && (
                     <>
                         <TouchableOpacity
-                            style={[styles.card, parikshanReleased && hasScores ? styles.releasedScoreCard : null]}
+                            style={[styles.card, styles.releasedScoreCard]}
                             onPress={() => setModalVisible(true)}
                             activeOpacity={0.7}
                         >
@@ -168,12 +184,9 @@ export default function ProfileScreen({ navigation }) {
                                 <Text style={styles.cardValue}>{user.averageScore.toFixed(1)} / 10</Text>
                                 <Icon name="chevron-forward-outline" size={20} color="#64748b" />
                             </View>
-                            {/* 👇 Add this block inside the TouchableOpacity */}
-                            {Object.keys(user.detailedScores).length < 5 && (
-                                <Text style={styles.partialNote}>
-                                    Score based on completed categories only
-                                </Text>
-                            )}
+                            <Text style={styles.amberNote}>
+                                Score based on completed categories only
+                            </Text>
                         </TouchableOpacity>
 
                         {showConfetti && (
@@ -186,6 +199,8 @@ export default function ProfileScreen({ navigation }) {
                         )}
                     </>
                 )}
+
+
 
                 <View style={styles.card}>
                     <Text style={styles.cardLabel}>Device</Text>
@@ -315,6 +330,13 @@ const styles = StyleSheet.create({
         color: '#92400e',
         textAlign: 'center',
     },
+    pendingSubText: {
+        fontSize: 12,
+        fontFamily: 'Poppins_400Regular',
+        color: '#475569',
+        marginTop: 4,
+        textAlign: 'center',
+    },
     statusBanner: {
         position: 'absolute',
         bottom: 30,
@@ -380,13 +402,6 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontFamily: 'Poppins_600SemiBold',
         fontSize: 16,
-    },
-    partialNote: {
-        fontSize: 12,
-        fontFamily: 'Poppins_400Regular',
-        color: '#64748b',
-        marginTop: 4,
-        fontStyle: 'italic',
     },
     amberNote: {
         fontSize: 12,
