@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AttendanceHome from '../screens/AttendanceHome';
 import ManualEntryScreen from '../screens/ManualEntryScreen';
 import AttendanceViewScreen from '../screens/AttendanceViewScreen';
+import AdminAttendanceRequestsScreen from '../screens/AdminAttendanceRequestScreen';
 import { Text, StyleSheet } from 'react-native';
 import { useFonts, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import SessionDataScreen from '../screens/SessionDataScreen'; // ✅ Add this line
@@ -53,7 +54,15 @@ export default function AttendanceStackNavigator() {
         }}
       />
       <Stack.Screen
-        name="SessionDataScreen" // ✅ Register here
+        name="AdminAttendanceRequests"
+        component={AdminAttendanceRequestsScreen}
+        options={{
+          headerTitle: () => <HeaderTitle title="Attendance Requests" />,
+          headerBackTitleVisible: false,
+        }}
+      />
+      <Stack.Screen
+        name="SessionDataScreen"
         component={SessionDataScreen}
         options={{
           headerTitle: () => <HeaderTitle title="Session Data" />,

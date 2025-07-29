@@ -1,13 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
-import {
-  useFonts,
-  Poppins_600SemiBold,
-  Poppins_400Regular,
-} from '@expo-google-fonts/poppins';
+import { useFonts, Poppins_600SemiBold, Poppins_400Regular } from '@expo-google-fonts/poppins';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
+import { db, auth } from '../firebase';
+import { doc, getDoc } from 'firebase/firestore';
 
 export default function AttendanceHome({ navigation, route }) {
   const [fontsLoaded] = useFonts({
@@ -17,6 +15,28 @@ export default function AttendanceHome({ navigation, route }) {
 
   const [showBanner, setShowBanner] = useState(false);
   const [bannerMessage, setBannerMessage] = useState('');
+  const [role, setRole] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch user role from Firestore
+    const fetchRole = async () => {
+      try {
+        const userDoc = await getDoc(doc(db, 'users', auth.currentUser.uid));
+        if (userDoc.exists()) {
+          setRole(userDoc.data()?.role || 'student');
+        } else {
+          setRole('student'); // fallback
+        }
+      } catch (err) {
+        console.error('Error fetching role:', err);
+        setRole('student');
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchRole();
+  }, []);
 
   useEffect(() => {
     if (route?.params?.fromScreen) {
@@ -35,7 +55,15 @@ export default function AttendanceHome({ navigation, route }) {
     </Animatable.View>
   );
 
-  if (!fontsLoaded) return null;
+  if (!fontsLoaded || loading) {
+    return (
+      <AppBackgroundWrapper>
+        <View style={styles.loaderContainer}>
+          <ActivityIndicator size="large" color="#4F46E5" />
+        </View>
+      </AppBackgroundWrapper>
+    );
+  }
 
   return (
     <AppBackgroundWrapper>
@@ -52,6 +80,16 @@ export default function AttendanceHome({ navigation, route }) {
           onPress={() => navigation.navigate('AttendanceView')}
           delay={400}
         />
+
+        {/* ✅ Show only if NOT student */}
+        {role !== 'student' && (
+          <Card
+            title="Attendance Requests"
+            iconName="checkmark-done-outline"
+            onPress={() => navigation.navigate('AdminAttendanceRequests')}
+            delay={600}
+          />
+        )}
 
         {showBanner && (
           <Animatable.View
@@ -74,6 +112,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
+  loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   card: {
     width: 300,
     backgroundColor: '#e2e8f0',

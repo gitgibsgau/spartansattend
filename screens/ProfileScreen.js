@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TouchableOpacity, StyleSheet, Modal } from 'react-native';
+import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
 import { auth, db } from '../firebase';
 import {
     doc,
@@ -126,141 +126,147 @@ export default function ProfileScreen({ navigation }) {
 
     return (
         <AppBackgroundWrapper>
-            <Animatable.View animation="fadeInUp" delay={100} style={styles.container}>
-                <View style={styles.header}>
-                    <Icon name="person-circle-outline" size={90} color="#1E3A8A" />
-                    <Text style={styles.name}>{user.fullname}</Text>
-                    <Text style={styles.text}>{user.email}</Text>
-                </View>
+            <ScrollView
+                contentContainerStyle={styles.scrollContainer}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+            >
+                <Animatable.View animation="fadeInUp" delay={100} style={styles.container}>
+                    <View style={styles.header}>
+                        <Icon name="person-circle-outline" size={90} color="#1E3A8A" />
+                        <Text style={styles.name}>{user.fullname}</Text>
+                        <Text style={styles.text}>{user.email}</Text>
+                    </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.cardLabel}>Total Attendance</Text>
-                    <Text style={styles.cardValue}>{user.attendanceCount ?? '0'} out of {user.sessionsCount}</Text>
-                    <Text style={styles.cardLabel}>Attendance %</Text>
-                    <Text style={styles.cardValue}>
-                        {user.attendanceCount > 0
-                            ? `${((user.attendanceCount / user.sessionsCount) * 100).toFixed(1)}%`
-                            : '0%'}
-                    </Text>
-                    {/* add reminder about 80% attendance to be eligble for event allocations */}
-                    <Text style={styles.amberNote}>
-                        Note: 80% attendance is required for event allocations.
-                    </Text>
-                </View>
+                    <View style={styles.card}>
+                        <Text style={styles.cardLabel}>Total Attendance</Text>
+                        <Text style={styles.cardValue}>{user.attendanceCount ?? '0'} out of {user.sessionsCount}</Text>
+                        <Text style={styles.cardLabel}>Attendance %</Text>
+                        <Text style={styles.cardValue}>
+                            {user.attendanceCount > 0
+                                ? `${((user.attendanceCount / user.sessionsCount) * 100).toFixed(1)}%`
+                                : '0%'}
+                        </Text>
+                        {/* add reminder about 80% attendance to be eligble for event allocations */}
+                        <Text style={styles.amberNote}>
+                            Note: 80% attendance is required for event allocations.
+                        </Text>
+                    </View>
 
-                {/* 🎓 Results pending, and student took Parikshan */}
-                {hasScores && !parikshanReleased && (
-                    <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
-                        <Text style={styles.pendingText}>🎓 Parikshan results will be available soon.</Text>
-                    </Animatable.View>
-                )}
+                    {/* 🎓 Results pending, and student took Parikshan */}
+                    {hasScores && !parikshanReleased && (
+                        <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
+                            <Text style={styles.pendingText}>🎓 Parikshan results will be available soon.</Text>
+                        </Animatable.View>
+                    )}
 
-                {/* ❌ Didn’t take Parikshan, and results not released */}
-                {!hasScores && !parikshanReleased && (
-                    <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
-                        <Text style={styles.pendingText}>You did not take the Parikshan.</Text>
-                        <Text style={styles.pendingSubText}>Please reach out to your Lead or Season Manager if you believe this is a mistake.</Text>
-                    </Animatable.View>
-                )}
+                    {/* ❌ Didn’t take Parikshan, and results not released */}
+                    {!hasScores && !parikshanReleased && (
+                        <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
+                            <Text style={styles.pendingText}>You did not take the Parikshan.</Text>
+                            <Text style={styles.pendingSubText}>Please reach out to your Lead or Season Manager if you believe this is a mistake.</Text>
+                        </Animatable.View>
+                    )}
 
-                {/* ❌ Didn’t take Parikshan, and results released */}
-                {!hasScores && parikshanReleased && (
-                    <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
-                        <Text style={styles.pendingText}>You did not take the Parikshan. No scores available.</Text>
-                        <Text style={styles.pendingSubText}>Please reach out to your Lead or Season Manager if you believe this is a mistake.</Text>
-                    </Animatable.View>
-                )}
+                    {/* ❌ Didn’t take Parikshan, and results released */}
+                    {!hasScores && parikshanReleased && (
+                        <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
+                            <Text style={styles.pendingText}>You did not take the Parikshan. No scores available.</Text>
+                            <Text style={styles.pendingSubText}>Please reach out to your Lead or Season Manager if you believe this is a mistake.</Text>
+                        </Animatable.View>
+                    )}
 
-                {/* ✅ Took Parikshan, and results released */}
-                {hasScores && parikshanReleased && (
-                    <>
-                        <TouchableOpacity
-                            style={[styles.card, styles.releasedScoreCard]}
-                            onPress={() => setModalVisible(true)}
-                            activeOpacity={0.7}
-                        >
-                            <Text style={styles.cardLabel}>Parikshan Score</Text>
-                            <View style={styles.cardRow}>
-                                <Text style={styles.cardValue}>{user.averageScore.toFixed(1)} / 10</Text>
-                                <Icon name="chevron-forward-outline" size={20} color="#64748b" />
-                            </View>
-                            <Text style={styles.amberNote}>
-                                Score based on completed categories only
-                            </Text>
-                        </TouchableOpacity>
+                    {/* ✅ Took Parikshan, and results released */}
+                    {hasScores && parikshanReleased && (
+                        <>
+                            <TouchableOpacity
+                                style={[styles.card, styles.releasedScoreCard]}
+                                onPress={() => setModalVisible(true)}
+                                activeOpacity={0.7}
+                            >
+                                <Text style={styles.cardLabel}>Parikshan Score</Text>
+                                <View style={styles.cardRow}>
+                                    <Text style={styles.cardValue}>{user.averageScore.toFixed(1)} / 10</Text>
+                                    <Icon name="chevron-forward-outline" size={20} color="#64748b" />
+                                </View>
+                                <Text style={styles.amberNote}>
+                                    Score based on completed categories only
+                                </Text>
+                            </TouchableOpacity>
 
-                        {showConfetti && (
-                            <ConfettiCannon
-                                count={50}
-                                origin={{ x: 200, y: -20 }}
-                                fadeOut
-                                explosionSpeed={300}
-                            />
-                        )}
-                    </>
-                )}
+                            {showConfetti && (
+                                <ConfettiCannon
+                                    count={50}
+                                    origin={{ x: 200, y: -20 }}
+                                    fadeOut
+                                    explosionSpeed={300}
+                                />
+                            )}
+                        </>
+                    )}
 
 
 
-                <View style={styles.card}>
-                    <Text style={styles.cardLabel}>Device</Text>
-                    <Text style={styles.cardValue}>{user.deviceId || 'N/A'}</Text>
-                </View>
+                    <View style={styles.card}>
+                        <Text style={styles.cardLabel}>Device</Text>
+                        <Text style={styles.cardValue}>{user.deviceId || 'N/A'}</Text>
+                    </View>
 
-                <View style={styles.card}>
-                    <Text style={styles.cardLabel}>Joined</Text>
-                    <Text style={styles.cardValue}>
-                        {user.createdAt
-                            ? new Date(user.createdAt).toLocaleDateString(undefined, {
-                                year: 'numeric',
-                                month: 'long',
-                                day: 'numeric',
-                            })
-                            : 'N/A'}
-                    </Text>
-                </View>
+                    <View style={styles.card}>
+                        <Text style={styles.cardLabel}>Joined</Text>
+                        <Text style={styles.cardValue}>
+                            {user.createdAt
+                                ? new Date(user.createdAt).toLocaleDateString(undefined, {
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric',
+                                })
+                                : 'N/A'}
+                        </Text>
+                    </View>
 
-                <Modal visible={modalVisible} transparent animationType="slide">
-                    <View style={styles.modalBackdrop}>
-                        <View style={styles.modalContent}>
-                            <Text style={styles.modalTitle}>Parikshan Breakdown</Text>
+                    <Modal visible={modalVisible} transparent animationType="slide">
+                        <View style={styles.modalBackdrop}>
+                            <View style={styles.modalContent}>
+                                <Text style={styles.modalTitle}>Parikshan Breakdown</Text>
 
-                            <Text style={styles.modalItem}>
-                                Dhol (Average): {(typeof user.detailedScores?.dhol1 === 'number' && typeof user.detailedScores?.dhol2 === 'number')
-                                    ? ((user.detailedScores.dhol1 + user.detailedScores.dhol2) / 2).toFixed(1) + ' / 10'
-                                    : 'N/A'}
-                            </Text>
-
-                            {['maintenance', 'dhwaj', 'tasha'].map((key) => (
-                                <Text key={key} style={styles.modalItem}>
-                                    {key.charAt(0).toUpperCase() + key.slice(1)}:{' '}
-                                    {typeof user.detailedScores?.[key] === 'number'
-                                        ? `${user.detailedScores[key]} / 10`
+                                <Text style={styles.modalItem}>
+                                    Dhol (Average): {(typeof user.detailedScores?.dhol1 === 'number' && typeof user.detailedScores?.dhol2 === 'number')
+                                        ? ((user.detailedScores.dhol1 + user.detailedScores.dhol2) / 2).toFixed(1) + ' / 10'
                                         : 'N/A'}
                                 </Text>
-                            ))}
-                            <TouchableOpacity
-                                style={styles.modalCloseButton}
-                                onPress={() => setModalVisible(false)}
-                            >
-                                <Text style={styles.modalCloseText}>Close</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </Modal>
 
-                {status.show && (
-                    <Animatable.View
-                        animation="slideInUp"
-                        style={[
-                            styles.statusBanner,
-                            status.type === 'error' ? styles.error : styles.success,
-                        ]}
-                    >
-                        <Text style={styles.statusText}>{status.text}</Text>
-                    </Animatable.View>
-                )}
-            </Animatable.View>
+                                {['maintenance', 'dhwaj', 'tasha'].map((key) => (
+                                    <Text key={key} style={styles.modalItem}>
+                                        {key.charAt(0).toUpperCase() + key.slice(1)}:{' '}
+                                        {typeof user.detailedScores?.[key] === 'number'
+                                            ? `${user.detailedScores[key]} / 10`
+                                            : 'N/A'}
+                                    </Text>
+                                ))}
+                                <TouchableOpacity
+                                    style={styles.modalCloseButton}
+                                    onPress={() => setModalVisible(false)}
+                                >
+                                    <Text style={styles.modalCloseText}>Close</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </Modal>
+
+                    {status.show && (
+                        <Animatable.View
+                            animation="slideInUp"
+                            style={[
+                                styles.statusBanner,
+                                status.type === 'error' ? styles.error : styles.success,
+                            ]}
+                        >
+                            <Text style={styles.statusText}>{status.text}</Text>
+                        </Animatable.View>
+                    )}
+                </Animatable.View>
+            </ScrollView>
         </AppBackgroundWrapper>
     );
 }
@@ -268,7 +274,7 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        padding: 24,
+        // padding: 24,
         alignItems: 'center',
     },
     header: {
@@ -414,5 +420,9 @@ const styles = StyleSheet.create({
         backgroundColor: '#e0f2fe', // Tailwind sky-100
         borderLeftWidth: 4,
         borderLeftColor: '#0284c7', // Tailwind sky-600
+    },
+    scrollContainer: {
+        paddingBottom: 80,
+        paddingHorizontal: 24,
     },
 });
