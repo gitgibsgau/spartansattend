@@ -46,6 +46,9 @@ export default function AdminFinalParikshanScreen() {
         })();
     }, []);
 
+    const formatScore = (v, digits = 2) =>
+        typeof v === 'number' && !Number.isNaN(v) ? v.toFixed(digits) : '—';
+
     const toggleReleaseResults = async () => {
         setTogglingRelease(true);
         try {
@@ -258,13 +261,13 @@ export default function AdminFinalParikshanScreen() {
                 {selectedStudent && (
                     <View style={styles.summaryCard}>
                         <Text style={styles.summaryTitle}>First Parikshan (Reference)</Text>
-                        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Dhol Avg</Text><Text style={styles.summaryValue}>{firstSummary.dholAvg ?? '—'}</Text></View>
-                        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Tasha</Text><Text style={styles.summaryValue}>{firstSummary.tasha ?? '—'}</Text></View>
-                        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Maintenance</Text><Text style={styles.summaryValue}>{firstSummary.maintenance ?? '—'}</Text></View>
-                        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Dhwaj</Text><Text style={styles.summaryValue}>{firstSummary.dhwaj ?? '—'}</Text></View>
+                        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Dhol Avg</Text><Text style={styles.summaryValue}>{formatScore(firstSummary.dholAvg, 1)}</Text></View>
+                        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Tasha</Text><Text style={styles.summaryValue}>{formatScore(firstSummary.tasha, 1)}</Text></View>
+                        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Maintenance</Text><Text style={styles.summaryValue}>{formatScore(firstSummary.maintenance, 1)}</Text></View>
+                        <View style={styles.summaryRow}><Text style={styles.summaryLabel}>Dhwaj</Text><Text style={styles.summaryValue}>{formatScore(firstSummary.dhwaj, 1)}</Text></View>
                         <View style={[styles.summaryRow, { borderTopWidth: 1, borderColor: '#e5e7eb', paddingTop: 8, marginTop: 4 }]}>
                             <Text style={[styles.summaryLabel, { fontFamily: 'Poppins_600SemiBold' }]}>Overall Avg</Text>
-                            <Text style={[styles.summaryValue, { fontFamily: 'Poppins_600SemiBold' }]}>{firstSummary.overall.toFixed(2) ?? '—'}</Text>
+                            <Text style={[styles.summaryValue, { fontFamily: 'Poppins_600SemiBold' }]}>{formatScore(firstSummary.overall, 2)}</Text>
                         </View>
                         <Text style={{ marginTop: 6, fontSize: 12, color: '#64748b', fontFamily: 'Poppins_400Regular' }}>
                             Average = Dhol Avg, Tasha, Maintenance and Dhwaj.
