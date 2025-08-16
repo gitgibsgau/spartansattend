@@ -24,13 +24,43 @@ export default function ProfileScreen({ navigation }) {
     const [user, setUser] = useState(null);
     const [status, setStatus] = useState({ show: false, type: '', text: '' });
     const [modalVisible, setModalVisible] = useState(false);
+
+    // SINGLE release flag
     const [parikshanReleased, setParikshanReleased] = useState(false);
+
     const [showConfetti, setShowConfetti] = useState(false);
 
     const [fontsLoaded] = useFonts({
         Poppins_600SemiBold,
         Poppins_400Regular,
     });
+
+    const computeFirstAverage = (data) => {
+        if (!data) return { average: null, dholAvg: null, tasha: null, dhwaj: null, maintenance: null };
+        let dholAvg = null;
+        const hasD1 = typeof data.dhol1 === 'number';
+        const hasD2 = typeof data.dhol2 === 'number';
+        if (hasD1 && hasD2) dholAvg = (data.dhol1 + data.dhol2) / 2;
+        else if (hasD1) dholAvg = data.dhol1;
+        else if (hasD2) dholAvg = data.dhol2;
+
+        const tasha = typeof data.tasha === 'number' ? data.tasha : null;
+        const dhwaj = typeof data.dhwaj === 'number' ? data.dhwaj : null;
+        const maintenance = typeof data.maintenance === 'number' ? data.maintenance : null;
+        const parts = [dholAvg, tasha, dhwaj, maintenance].filter((x) => typeof x === 'number' && !Number.isNaN(x));
+        const average = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : null;
+        return { average, dholAvg, tasha, dhwaj, maintenance };
+    };
+
+    const computeFinalAverage = (data) => {
+        if (!data) return { average: null, dhol: null, dhwaj: null, tasha: null };
+        const dhol = typeof data.dhol === 'number' ? data.dhol : null;
+        const dhwaj = typeof data.dhwaj === 'number' ? data.dhwaj : null;
+        const tasha = typeof data.tasha === 'number' ? data.tasha : null;
+        const parts = [dhol, dhwaj, tasha].filter((x) => typeof x === 'number' && !Number.isNaN(x));
+        const average = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : null;
+        return { average, dhol, dhwaj, tasha };
+    };
 
     useEffect(() => {
         const loadUser = async () => {
@@ -39,6 +69,7 @@ export default function ProfileScreen({ navigation }) {
                 const userRef = doc(db, 'users', uid);
                 const userSnap = await getDoc(userRef);
 
+                // SINGLE release flag
                 const settingsRef = doc(db, 'globalConfig', 'parikshanSettings');
                 const settingsSnap = await getDoc(settingsRef);
                 const isReleased = settingsSnap.exists() && settingsSnap.data().parikshanReleased === true;
@@ -47,50 +78,46 @@ export default function ProfileScreen({ navigation }) {
                 if (userSnap.exists()) {
                     const userData = userSnap.data();
 
-                    const attendanceQuery = query(
-                        collection(db, 'attendance'),
-                        where('studentId', '==', uid)
-                    );
+                    const attendanceQuery = query(collection(db, 'attendance'), where('studentId', '==', uid));
                     const attendanceSnap = await getDocs(attendanceQuery);
                     const sessionsSnap = await getDocs(collection(db, 'sessions'));
                     const sessionCount = sessionsSnap.size;
 
-                    const scoreRef = doc(db, 'parikshanScores', uid);
-                    const scoreSnap = await getDoc(scoreRef);
-                    let averageScore = null;
-                    let detailedScores = {};
+                    // FIRST
+                    const firstRef = doc(db, 'parikshanScores', uid);
+                    const firstSnap = await getDoc(firstRef);
+                    const firstData = firstSnap.exists() ? firstSnap.data() : null;
+                    const {
+                        average: firstAverage,
+                        dholAvg: firstDholAvg,
+                        tasha: firstTasha,
+                        dhwaj: firstDhwaj,
+                        maintenance: firstMaintenance,
+                    } = computeFirstAverage(firstData);
 
-                    if (scoreSnap.exists()) {
-                        const data = scoreSnap.data();
-                        let values = [];
+                    // FINAL
+                    const finalRef = doc(db, 'finalParikshanScores', uid);
+                    const finalSnap = await getDoc(finalRef);
+                    const finalData = finalSnap.exists() ? finalSnap.data() : null;
+                    const {
+                        average: finalAverage,
+                        dhol: finalDhol,
+                        dhwaj: finalDhwaj,
+                        tasha: finalTasha,
+                    } = computeFinalAverage(finalData);
 
-                        // Handle Dhol only if both scores exist
-                        if (typeof data.dhol1 === 'number' && typeof data.dhol2 === 'number') {
-                            const dholAvg = (data.dhol1 + data.dhol2) / 2;
-                            values.push(dholAvg);
-                        }
-
-                        // Handle other individual fields
-                        ['maintenance', 'dhwaj', 'tasha'].forEach(key => {
-                            if (typeof data[key] === 'number') {
-                                values.push(data[key]);
-                            }
-                        });
-
-                        if (values.length > 0) {
-                            averageScore = values.reduce((a, b) => a + b, 0) / values.length;
-                        }
-
-                        detailedScores = data;
+                    // Combined (if both exist)
+                    let combinedAverage = null;
+                    if (typeof firstAverage === 'number' && typeof finalAverage === 'number') {
+                        combinedAverage = (firstAverage + finalAverage) / 2;
                     }
 
+                    // Confetti: first time combined becomes visible (single flag)
                     let shouldShowConfetti = false;
-
-                    if (isReleased && averageScore !== null) {
-                        if (!userSnap.data()?.confettiShown) {
-                            shouldShowConfetti = true;
-                            await setDoc(userRef, { confettiShown: true }, { merge: true });
-                        }
+                    const combinedIsVisible = isReleased && typeof combinedAverage === 'number';
+                    if (combinedIsVisible && !userData?.confettiCombinedShown) {
+                        shouldShowConfetti = true;
+                        await setDoc(userRef, { confettiCombinedShown: true }, { merge: true });
                     }
 
                     setUser({
@@ -98,12 +125,26 @@ export default function ProfileScreen({ navigation }) {
                         id: uid,
                         attendanceCount: attendanceSnap.size,
                         sessionsCount: sessionCount,
-                        averageScore,
-                        detailedScores,
+
+                        averageFirst: firstAverage,
+                        averageFinal: finalAverage,
+                        combinedAverage,
+
+                        detailedFirst: firstData || {},
+                        detailedFinal: finalData || {},
+
+                        firstDholAvg,
+                        firstTasha,
+                        firstDhwaj,
+                        firstMaintenance,
+
+                        finalDhol,
+                        finalDhwaj,
+                        finalTasha,
                     });
 
                     if (shouldShowConfetti) {
-                        setTimeout(() => setShowConfetti(true), 1000); // 🎉 delay before celebration!
+                        setTimeout(() => setShowConfetti(true), 1000);
                     }
                 }
             } catch (error) {
@@ -122,7 +163,20 @@ export default function ProfileScreen({ navigation }) {
 
     if (!fontsLoaded || !user) return null;
 
-    const hasScores = user.averageScore != null;
+    // visibility with one flag
+    const canShowFirst = parikshanReleased && typeof user.averageFirst === 'number';
+    const canShowFinal = parikshanReleased && typeof user.averageFinal === 'number';
+    const canShowCombined = parikshanReleased && typeof user.averageFirst === 'number' && typeof user.averageFinal === 'number';
+
+    const displayValue = canShowCombined
+        ? user.combinedAverage
+        : canShowFirst
+            ? user.averageFirst
+            : canShowFinal
+                ? user.averageFinal
+                : null;
+
+    const hasScoresToShow = displayValue != null;
 
     return (
         <AppBackgroundWrapper>
@@ -147,65 +201,46 @@ export default function ProfileScreen({ navigation }) {
                                 ? `${((user.attendanceCount / user.sessionsCount) * 100).toFixed(1)}%`
                                 : '0%'}
                         </Text>
-                        {/* add reminder about 80% attendance to be eligble for event allocations */}
                         <Text style={styles.amberNote}>
                             Note: 80% attendance is required for event allocations.
                         </Text>
                     </View>
 
-                    {/* 🎓 Results pending, and student took Parikshan */}
-                    {hasScores && !parikshanReleased && (
+                    {/* Pending / No score banners */}
+                    {!parikshanReleased && (
                         <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
                             <Text style={styles.pendingText}>🎓 Parikshan results will be available soon.</Text>
                         </Animatable.View>
                     )}
 
-                    {/* ❌ Didn’t take Parikshan, and results not released */}
-                    {!hasScores && !parikshanReleased && (
+                    {parikshanReleased && !hasScoresToShow && (
                         <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
-                            <Text style={styles.pendingText}>You did not take the Parikshan.</Text>
-                            <Text style={styles.pendingSubText}>Please reach out to your Lead or Season Manager if you believe this is a mistake.</Text>
+                            <Text style={styles.pendingText}>No scores available.</Text>
+                            <Text style={styles.pendingSubText}>Please contact your Lead/Season Manager if this seems incorrect.</Text>
                         </Animatable.View>
                     )}
 
-                    {/* ❌ Didn’t take Parikshan, and results released */}
-                    {!hasScores && parikshanReleased && (
-                        <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
-                            <Text style={styles.pendingText}>You did not take the Parikshan. No scores available.</Text>
-                            <Text style={styles.pendingSubText}>Please reach out to your Lead or Season Manager if you believe this is a mistake.</Text>
-                        </Animatable.View>
-                    )}
-
-                    {/* ✅ Took Parikshan, and results released */}
-                    {hasScores && parikshanReleased && (
+                    {/* Scores */}
+                    {parikshanReleased && hasScoresToShow && (
                         <>
-                            <TouchableOpacity
-                                style={[styles.card, styles.releasedScoreCard]}
-                                onPress={() => setModalVisible(true)}
-                                activeOpacity={0.7}
-                            >
-                                <Text style={styles.cardLabel}>Parikshan Score</Text>
+                            <TouchableOpacity style={[styles.card, styles.releasedScoreCard]} onPress={() => setModalVisible(true)} activeOpacity={0.7}>
+                                <Text style={styles.cardLabel}>
+                                    {canShowCombined ? 'Parikshan Score (Combined: First + Final)' : canShowFirst ? 'Parikshan Score (First)' : 'Parikshan Score (Final)'}
+                                </Text>
                                 <View style={styles.cardRow}>
-                                    <Text style={styles.cardValue}>{user.averageScore.toFixed(1)} / 10</Text>
+                                    <Text style={styles.cardValue}>{displayValue.toFixed(1)} / 10</Text>
                                     <Icon name="chevron-forward-outline" size={20} color="#64748b" />
                                 </View>
                                 <Text style={styles.amberNote}>
-                                    Score based on completed categories only
+                                    First uses Dhol Avg, Tasha, Dhwaj, Maintenance. Final uses Dhol, Dhwaj, (optional) Tasha.
                                 </Text>
                             </TouchableOpacity>
 
                             {showConfetti && (
-                                <ConfettiCannon
-                                    count={50}
-                                    origin={{ x: 200, y: -20 }}
-                                    fadeOut
-                                    explosionSpeed={300}
-                                />
+                                <ConfettiCannon count={50} origin={{ x: 200, y: -20 }} fadeOut explosionSpeed={300} />
                             )}
                         </>
                     )}
-
-
 
                     <View style={styles.card}>
                         <Text style={styles.cardLabel}>Device</Text>
@@ -225,29 +260,58 @@ export default function ProfileScreen({ navigation }) {
                         </Text>
                     </View>
 
+                    {/* Modal Breakdown */}
                     <Modal visible={modalVisible} transparent animationType="slide">
                         <View style={styles.modalBackdrop}>
                             <View style={styles.modalContent}>
                                 <Text style={styles.modalTitle}>Parikshan Breakdown</Text>
 
+                                {/* First */}
+                                <Text style={[styles.modalSectionTitle]}>First Parikshan</Text>
                                 <Text style={styles.modalItem}>
-                                    Dhol (Average): {(typeof user.detailedScores?.dhol1 === 'number' && typeof user.detailedScores?.dhol2 === 'number')
-                                        ? ((user.detailedScores.dhol1 + user.detailedScores.dhol2) / 2).toFixed(1) + ' / 10'
-                                        : 'N/A'}
+                                    Dhol (Avg): {typeof user.firstDholAvg === 'number' ? `${user.firstDholAvg.toFixed(1)} / 10` : 'N/A'}
+                                </Text>
+                                <Text style={styles.modalItem}>
+                                    Tasha: {typeof user.firstTasha === 'number' ? `${user.firstTasha} / 10` : 'N/A'}
+                                </Text>
+                                <Text style={styles.modalItem}>
+                                    Dhwaj: {typeof user.firstDhwaj === 'number' ? `${user.firstDhwaj} / 10` : 'N/A'}
+                                </Text>
+                                <Text style={styles.modalItem}>
+                                    Maintenance: {typeof user.firstMaintenance === 'number' ? `${user.firstMaintenance} / 10` : 'N/A'}
+                                </Text>
+                                <Text style={[styles.modalItem, styles.modalEm]}>
+                                    First Avg: {typeof user.averageFirst === 'number' ? `${user.averageFirst.toFixed(1)} / 10` : 'N/A'}
                                 </Text>
 
-                                {['maintenance', 'dhwaj', 'tasha'].map((key) => (
-                                    <Text key={key} style={styles.modalItem}>
-                                        {key.charAt(0).toUpperCase() + key.slice(1)}:{' '}
-                                        {typeof user.detailedScores?.[key] === 'number'
-                                            ? `${user.detailedScores[key]} / 10`
-                                            : 'N/A'}
-                                    </Text>
-                                ))}
-                                <TouchableOpacity
-                                    style={styles.modalCloseButton}
-                                    onPress={() => setModalVisible(false)}
-                                >
+                                <View style={{ height: 12 }} />
+
+                                {/* Final */}
+                                <Text style={[styles.modalSectionTitle]}>Final Parikshan</Text>
+                                <Text style={styles.modalItem}>
+                                    Dhol: {typeof user.finalDhol === 'number' ? `${user.finalDhol} / 10` : 'N/A'}
+                                </Text>
+                                <Text style={styles.modalItem}>
+                                    Dhwaj: {typeof user.finalDhwaj === 'number' ? `${user.finalDhwaj} / 10` : 'N/A'}
+                                </Text>
+                                <Text style={styles.modalItem}>
+                                    Tasha: {typeof user.finalTasha === 'number' ? `${user.finalTasha} / 10` : 'N/A'}
+                                </Text>
+                                <Text style={[styles.modalItem, styles.modalEm]}>
+                                    Final Avg: {typeof user.averageFinal === 'number' ? `${user.averageFinal.toFixed(1)} / 10` : 'N/A'}
+                                </Text>
+
+                                <View style={{ height: 12 }} />
+
+                                {/* Combined */}
+                                <Text style={[styles.modalSectionTitle]}>Combined</Text>
+                                <Text style={[styles.modalItem, styles.modalEm]}>
+                                    {(typeof user.combinedAverage === 'number')
+                                        ? `Combined Avg: ${user.combinedAverage.toFixed(1)} / 10`
+                                        : 'Combined Avg: N/A'}
+                                </Text>
+
+                                <TouchableOpacity style={styles.modalCloseButton} onPress={() => setModalVisible(false)}>
                                     <Text style={styles.modalCloseText}>Close</Text>
                                 </TouchableOpacity>
                             </View>
@@ -274,7 +338,6 @@ export default function ProfileScreen({ navigation }) {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        // padding: 24,
         alignItems: 'center',
     },
     header: {
@@ -391,11 +454,23 @@ const styles = StyleSheet.create({
         marginBottom: 12,
         color: '#1e293b',
     },
+    modalSectionTitle: {
+        fontSize: 16,
+        fontFamily: 'Poppins_600SemiBold',
+        color: '#1e293b',
+        marginTop: 8,
+        marginBottom: 4,
+        alignSelf: 'flex-start',
+    },
     modalItem: {
         fontSize: 16,
         fontFamily: 'Poppins_400Regular',
         color: '#334155',
-        marginVertical: 4,
+        marginVertical: 2,
+        alignSelf: 'flex-start',
+    },
+    modalEm: {
+        fontFamily: 'Poppins_600SemiBold',
     },
     modalCloseButton: {
         marginTop: 16,
@@ -412,14 +487,13 @@ const styles = StyleSheet.create({
     amberNote: {
         fontSize: 12,
         fontFamily: 'Poppins_400Regular',
-        color: '#b45309', // red '#b45309',
+        color: '#b45309',
         marginTop: 8,
-        fontStyle: 'bold',
     },
     releasedScoreCard: {
-        backgroundColor: '#e0f2fe', // Tailwind sky-100
+        backgroundColor: '#e0f2fe',
         borderLeftWidth: 4,
-        borderLeftColor: '#0284c7', // Tailwind sky-600
+        borderLeftColor: '#0284c7',
     },
     scrollContainer: {
         paddingBottom: 80,
