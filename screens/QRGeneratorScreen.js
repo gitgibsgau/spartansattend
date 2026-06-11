@@ -17,6 +17,7 @@ import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 import { LinearGradient } from '../components/ui/Gradient';
 import { colors, spacing, radius, fonts, shadows } from '../theme';
 import { useSeason } from '../contexts/SeasonContext';
+import { getCurrentCoordinates } from '../utils/locationUtils';
 
 const generateCode = (length = 6) => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -48,6 +49,16 @@ export default function QRGeneratorScreen() {
     }
 
     setLoading(true);
+
+    // Anchor the geofence to where the admin is generating the session, so the
+    // event can be held anywhere (not the legacy hardcoded campus location).
+    const coords = await getCurrentCoordinates();
+    if (!coords) {
+      setLoading(false);
+      showBanner('error', 'Enable location to set the session location.');
+      return;
+    }
+
     const code = generateCode();
 
     try {
@@ -56,6 +67,8 @@ export default function QRGeneratorScreen() {
         createdBy: auth.currentUser.uid,
         code,
         season: currentSeason,
+        latitude: coords.latitude,
+        longitude: coords.longitude,
         timestamp: Timestamp.now(),
         expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 60 * 1000)) // 30 minutes
       });
@@ -120,6 +133,12 @@ export default function QRGeneratorScreen() {
             <Text style={styles.codeText}>
               Manual Code: <Text style={styles.codeValue}>{sessionCode}</Text>
             </Text>
+            <View style={styles.locationNote}>
+              <Icon name="location" size={14} color={colors.primaryDark} />
+              <Text style={styles.locationNoteText}>
+                Attendance is limited to within 200m of this location.
+              </Text>
+            </View>
           </Animatable.View>
         )}
 
@@ -225,6 +244,19 @@ const styles = StyleSheet.create({
     color: colors.primary,
     fontSize: 18,
     letterSpacing: 1,
+  },
+  locationNote: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: spacing.md,
+    paddingHorizontal: spacing.md,
+  },
+  locationNoteText: {
+    flex: 1,
+    fontSize: 12.5,
+    fontFamily: fonts.medium,
+    color: colors.primaryDark,
   },
   statusBanner: {
     position: 'absolute',

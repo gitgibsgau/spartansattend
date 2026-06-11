@@ -98,11 +98,16 @@ export default function ManualEntryScreen() {
         return;
       }
 
-      const { withinRadius, distance } = await checkLocationAccessAndProximity();
+      const { withinRadius, distance } = await checkLocationAccessAndProximity(
+        sessionData.latitude,
+        sessionData.longitude
+      );
       if (!withinRadius) {
         showBanner(
           'error',
-          `You're ${Math.round(distance)}m away. Must be within 200m.`
+          distance != null
+            ? `You're ${Math.round(distance)}m away. Must be within 200m.`
+            : 'Could not verify your location. Enable location and try again.'
         );
         return;
       }
