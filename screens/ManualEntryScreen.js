@@ -16,32 +16,28 @@ import {
   getDocs,
   addDoc,
   Timestamp,
+  doc,
+  getDoc,
 } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { checkLocationAccessAndProximity } from '../utils/locationUtils';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
-import {
-  useFonts,
-  Poppins_600SemiBold,
-  Poppins_400Regular,
-} from '@expo-google-fonts/poppins';
+import { LinearGradient } from '../components/ui/Gradient';
+import { colors, spacing, radius, fonts, shadows } from '../theme';
+import { useSeason } from '../contexts/SeasonContext';
 
 export default function ManualEntryScreen() {
   const [code, setCode] = useState('');
   const [title, setTitle] = useState('');
   const [sessionId, setSessionId] = useState(null);
+  const { currentSeason } = useSeason();
   const [loading, setLoading] = useState(false);
   const inputRef = useRef(null);
   const buttonRef = useRef(null);
   const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
   const [showStatus, setShowStatus] = useState(false);
-
-  const [fontsLoaded] = useFonts({
-    Poppins_600SemiBold,
-    Poppins_400Regular,
-  });
 
   const showBanner = (type, text) => {
     setStatusMessage({ type, text });
@@ -52,10 +48,12 @@ export default function ManualEntryScreen() {
   useEffect(() => {
     const fetchLatestSession = async () => {
       try {
+        if (!currentSeason) return;
         const now = Timestamp.now();
         const sessionQuery = query(
           collection(db, 'sessions'),
           where('expiresAt', '>', now),
+          where('season', '==', currentSeason),
           orderBy('expiresAt', 'desc')
         );
         const snapshot = await getDocs(sessionQuery);
@@ -75,7 +73,7 @@ export default function ManualEntryScreen() {
     };
 
     fetchLatestSession();
-  }, []);
+  }, [currentSeason]);
 
   const handleSubmit = async () => {
     if (loading || !sessionId || !code) return;
@@ -86,7 +84,7 @@ export default function ManualEntryScreen() {
     try {
       const now = Timestamp.now();
       const sessionDoc = await getDocs(
-        query(collection(db, 'sessions'), where('code', '==', code))
+        query(collection(db, 'sessions'), where('code', '==', code), where('season', '==', currentSeason))
       );
 
       if (sessionDoc.empty) {
@@ -112,7 +110,8 @@ export default function ManualEntryScreen() {
       const attendanceQuery = query(
         collection(db, 'attendance'),
         where('sessionId', '==', sessionId),
-        where('studentId', '==', auth.currentUser.uid)
+        where('studentId', '==', auth.currentUser.uid),
+        where('season', '==', currentSeason)
       );
       const attendanceSnap = await getDocs(attendanceQuery);
 
@@ -122,6 +121,7 @@ export default function ManualEntryScreen() {
         await addDoc(collection(db, 'attendance'), {
           sessionId,
           studentId: auth.currentUser.uid,
+          season: currentSeason,
           markedAt: Timestamp.now(),
         });
         showBanner('success', 'Attendance marked successfully!');
@@ -134,8 +134,6 @@ export default function ManualEntryScreen() {
     }
   };
 
-  if (!fontsLoaded) return null;
-
   return (
     <AppBackgroundWrapper>
       <KeyboardAvoidingView
@@ -146,7 +144,14 @@ export default function ManualEntryScreen() {
           {title ? title.toUpperCase() : ''}
         </Text>
         <Animatable.View animation="fadeInUp" duration={700} style={styles.card}>
-          <Icon name="qr-code-outline" size={40} color="#4F46E5" style={{ marginBottom: 10 }} />
+          <LinearGradient
+            colors={colors.primaryGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.iconBadge}
+          >
+            <Icon name="qr-code-outline" size={32} color={colors.textOnPrimary} />
+          </LinearGradient>
           <Text style={styles.label}>Session Code</Text>
 
           <Animatable.View
@@ -159,18 +164,25 @@ export default function ManualEntryScreen() {
             <TextInput
               value={code}
               editable={false}
-              style={[styles.input, { backgroundColor: '#e2e8f0' }]}
-              placeholderTextColor="#94a3b8"
+              style={[styles.input, { backgroundColor: colors.surfaceMuted }]}
+              placeholderTextColor={colors.textMuted}
             />
           </Animatable.View>
 
           {loading ? (
-            <ActivityIndicator size="large" color="#4F46E5" style={{ marginTop: 20 }} />
+            <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 20 }} />
           ) : (
-            <Animatable.View ref={buttonRef} useNativeDriver>
-              <TouchableOpacity style={styles.button} onPress={handleSubmit}>
-                <Icon name="checkmark-circle-outline" size={22} color="white" />
-                <Text style={styles.buttonText}>Mark Attendance</Text>
+            <Animatable.View ref={buttonRef} useNativeDriver style={styles.buttonShadow}>
+              <TouchableOpacity onPress={handleSubmit} activeOpacity={0.9}>
+                <LinearGradient
+                  colors={colors.primaryGradient}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={styles.button}
+                >
+                  <Icon name="checkmark-circle-outline" size={22} color={colors.textOnPrimary} />
+                  <Text style={styles.buttonText}>Mark Attendance</Text>
+                </LinearGradient>
               </TouchableOpacity>
             </Animatable.View>
           )}
@@ -196,89 +208,99 @@ export default function ManualEntryScreen() {
 const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
-    padding: 20,
-    paddingTop: Platform.OS === 'ios' ? 60 : 20,
+    padding: spacing.xl,
+    paddingTop: Platform.OS === 'ios' ? 60 : spacing.xl,
+    backgroundColor: colors.background,
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 25,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 5,
+    backgroundColor: colors.surface,
+    borderRadius: radius['2xl'],
+    padding: spacing['2xl'],
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.md,
     alignItems: 'center',
   },
+  iconBadge: {
+    width: 72,
+    height: 72,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+    ...shadows.primary,
+  },
   label: {
-    fontSize: 20,
-    fontFamily: 'Poppins_600SemiBold',
-    marginBottom: 12,
-    color: '#1e293b',
+    fontSize: 18,
+    fontFamily: fonts.semibold,
+    marginBottom: spacing.md,
+    color: colors.text,
   },
   animatedInputWrapper: {
     width: '100%',
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   input: {
     width: '100%',
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
+    borderColor: colors.border,
+    borderRadius: radius.md,
     padding: 14,
-    fontSize: 16,
+    fontSize: 18,
+    letterSpacing: 2,
     textAlign: 'center',
     textTransform: 'uppercase',
-    color: '#1f2937',
-    fontFamily: 'Poppins_400Regular',
+    color: colors.text,
+    fontFamily: fonts.semibold,
+  },
+  buttonShadow: {
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
+    ...shadows.primary,
   },
   button: {
     flexDirection: 'row',
-    backgroundColor: '#4F46E5',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.lg,
     alignItems: 'center',
+    justifyContent: 'center',
     gap: 10,
   },
   buttonText: {
-    color: 'white',
+    color: colors.textOnPrimary,
     fontSize: 16,
-    fontFamily: 'Poppins_600SemiBold',
+    fontFamily: fonts.semibold,
   },
   statusBanner: {
     position: 'absolute',
     bottom: 30,
-    left: 20,
-    right: 20,
-    padding: 12,
-    borderRadius: 10,
+    left: spacing.xl,
+    right: spacing.xl,
+    padding: spacing.lg,
+    borderRadius: radius.md,
     borderLeftWidth: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 3,
+    ...shadows.md,
     zIndex: 100,
   },
   statusText: {
     fontSize: 15,
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: fonts.medium,
     textAlign: 'center',
   },
   error: {
-    backgroundColor: '#fee2e2',
-    borderLeftColor: '#dc2626',
+    backgroundColor: colors.dangerSoft,
+    borderLeftColor: colors.danger,
   },
   success: {
-    backgroundColor: '#d1fae5',
-    borderLeftColor: '#059669',
+    backgroundColor: colors.successSoft,
+    borderLeftColor: colors.success,
   },
   sessionTitle: {
     fontSize: 18,
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#1e293b',
-    marginBottom: 20,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+    marginBottom: spacing.xl,
     textAlign: 'center',
   },
 });

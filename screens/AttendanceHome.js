@@ -1,18 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { View, StyleSheet, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, StyleSheet, Text, TouchableOpacity, ActivityIndicator, ScrollView } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
-import { useFonts, Poppins_600SemiBold, Poppins_400Regular } from '@expo-google-fonts/poppins';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
+import { LinearGradient } from '../components/ui/Gradient';
+import { colors, spacing, radius, fonts, shadows } from '../theme';
 import { db, auth } from '../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 
 export default function AttendanceHome({ navigation, route }) {
-  const [fontsLoaded] = useFonts({
-    Poppins_600SemiBold,
-    Poppins_400Regular,
-  });
-
   const [showBanner, setShowBanner] = useState(false);
   const [bannerMessage, setBannerMessage] = useState('');
   const [role, setRole] = useState(null);
@@ -46,20 +42,32 @@ export default function AttendanceHome({ navigation, route }) {
     }
   }, [route]);
 
-  const Card = ({ title, iconName, onPress, delay }) => (
-    <Animatable.View animation="fadeInUp" delay={delay}>
-      <TouchableOpacity onPress={onPress} style={styles.card}>
-        <Icon name={iconName} size={32} color="#2563eb" />
-        <Text style={styles.cardText}>{title}</Text>
+  // Rich action row: colored icon badge + title/subtitle + chevron.
+  const ActionCard = ({ title, subtitle, iconName, gradient, onPress, delay }) => (
+    <Animatable.View animation="fadeInUp" delay={delay} style={styles.cardWrap}>
+      <TouchableOpacity onPress={onPress} style={styles.card} activeOpacity={0.85}>
+        <LinearGradient
+          colors={gradient}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={styles.iconBadge}
+        >
+          <Icon name={iconName} size={26} color={colors.textOnPrimary} />
+        </LinearGradient>
+        <View style={styles.cardTextWrap}>
+          <Text style={styles.cardTitle}>{title}</Text>
+          <Text style={styles.cardSubtitle}>{subtitle}</Text>
+        </View>
+        <Icon name="chevron-forward" size={22} color={colors.textMuted} />
       </TouchableOpacity>
     </Animatable.View>
   );
 
-  if (!fontsLoaded || loading) {
+  if (loading) {
     return (
       <AppBackgroundWrapper>
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#4F46E5" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </AppBackgroundWrapper>
     );
@@ -67,27 +75,48 @@ export default function AttendanceHome({ navigation, route }) {
 
   return (
     <AppBackgroundWrapper>
-      <View style={styles.container}>
-        <Card
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <Animatable.View animation="fadeInDown" duration={600}>
+          <LinearGradient
+            colors={colors.primaryGradient}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.hero}
+          >
+            <View style={styles.heroIcon}>
+              <Icon name="calendar" size={28} color={colors.textOnPrimary} />
+            </View>
+            <Text style={styles.heroTitle}>Attendance</Text>
+            <Text style={styles.heroSubtitle}>Mark and track your practice sessions</Text>
+          </LinearGradient>
+        </Animatable.View>
+
+        <ActionCard
           title="Mark Your Attendance"
+          subtitle="Scan the session QR code"
           iconName="qr-code-outline"
+          gradient={colors.primaryGradient}
           onPress={() => navigation.navigate('ManualEntry')}
-          delay={200}
+          delay={150}
         />
-        <Card
+        <ActionCard
           title="View Attendance"
+          subtitle="Your session history & calendar"
           iconName="calendar-outline"
+          gradient={['#8B5CF6', '#A78BFA']}
           onPress={() => navigation.navigate('AttendanceView')}
-          delay={400}
+          delay={300}
         />
 
         {/* ✅ Show only if NOT student */}
         {role !== 'student' && (
-          <Card
+          <ActionCard
             title="Attendance Requests"
+            subtitle="Review correction requests"
             iconName="checkmark-done-outline"
+            gradient={[colors.success, '#10B981']}
             onPress={() => navigation.navigate('AdminAttendanceRequests')}
-            delay={600}
+            delay={450}
           />
         )}
 
@@ -100,61 +129,100 @@ export default function AttendanceHome({ navigation, route }) {
             <Text style={styles.statusText}>{bannerMessage}</Text>
           </Animatable.View>
         )}
-      </View>
+      </ScrollView>
     </AppBackgroundWrapper>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+    flexGrow: 1,
+    justifyContent: 'center', // center the hero + cards so short content isn't jammed at the top
+    paddingHorizontal: spacing.xl,
+    paddingTop: spacing.xl,
+    paddingBottom: spacing['3xl'],
+    backgroundColor: colors.background,
   },
   loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  card: {
-    width: 300,
-    backgroundColor: '#e2e8f0',
-    borderRadius: 16,
-    paddingVertical: 28,
-    paddingHorizontal: 24,
-    marginVertical: 18,
-    alignItems: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 10,
-    elevation: 5,
+  hero: {
+    borderRadius: radius['2xl'],
+    padding: spacing['2xl'],
+    marginBottom: spacing['2xl'],
+    ...shadows.primary,
   },
-  cardText: {
-    marginTop: 12,
-    fontSize: 18,
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#1e293b',
+  heroIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.lg,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.md,
+  },
+  heroTitle: {
+    fontSize: 24,
+    fontFamily: fonts.bold,
+    color: colors.textOnPrimary,
+  },
+  heroSubtitle: {
+    fontSize: 14,
+    fontFamily: fonts.regular,
+    color: '#E0E7FF',
+    marginTop: 4,
+  },
+  cardWrap: {
+    marginBottom: spacing.lg,
+  },
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.md,
+  },
+  iconBadge: {
+    width: 52,
+    height: 52,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: spacing.lg,
+  },
+  cardTextWrap: {
+    flex: 1,
+  },
+  cardTitle: {
+    fontSize: 16,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+  },
+  cardSubtitle: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    marginTop: 2,
   },
   statusBanner: {
     position: 'absolute',
     bottom: 30,
-    left: 20,
-    right: 20,
-    padding: 12,
-    borderRadius: 10,
+    left: spacing.xl,
+    right: spacing.xl,
+    padding: spacing.lg,
+    borderRadius: radius.md,
     borderLeftWidth: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 3,
+    ...shadows.md,
     zIndex: 100,
   },
   statusText: {
     fontSize: 16,
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: fonts.medium,
     textAlign: 'center',
   },
   success: {
-    backgroundColor: '#d1fae5',
-    borderLeftColor: '#059669',
+    backgroundColor: colors.successSoft,
+    borderLeftColor: colors.success,
   },
 });

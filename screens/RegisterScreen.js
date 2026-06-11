@@ -20,12 +20,9 @@ import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { setDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from '../components/ui/Gradient';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
-import {
-  useFonts,
-  Poppins_600SemiBold,
-  Poppins_400Regular,
-} from '@expo-google-fonts/poppins';
+import { colors, spacing, radius, fonts, shadows } from '../theme';
 
 export default function RegisterScreen({ navigation }) {
   const [fullname, setFullname] = useState('');
@@ -38,13 +35,6 @@ export default function RegisterScreen({ navigation }) {
   const [loading, setLoading] = useState(false);
 
   const role = 'student';
-
-  const [fontsLoaded] = useFonts({
-    Poppins_600SemiBold,
-    Poppins_400Regular,
-  });
-
-  if (!fontsLoaded) return null;
 
   const showBanner = (type, text) => {
     setStatusMessage({ type, text });
@@ -120,8 +110,16 @@ export default function RegisterScreen({ navigation }) {
             keyboardShouldPersistTaps="handled"
           >
             <Animatable.View animation="fadeInUp" duration={800} style={styles.card}>
-              <Ionicons name="person-add-outline" size={80} color="#2563eb" style={styles.icon} />
+              <LinearGradient
+                colors={colors.primaryGradient}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.iconBadge}
+              >
+                <Ionicons name="person-add-outline" size={38} color={colors.textOnPrimary} />
+              </LinearGradient>
               <Text style={styles.title}>Create Account</Text>
+              <Text style={styles.subtitle}>Join the Spartans</Text>
 
               <TextInput
                 placeholder="Full name"
@@ -163,15 +161,22 @@ export default function RegisterScreen({ navigation }) {
 
               <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
                 <Pressable
-                  style={[styles.button, loading && { opacity: 0.6 }]}
+                  style={[styles.buttonShadow, loading && { opacity: 0.6 }]}
                   onPress={() => triggerFeedback(handleRegister)}
                   disabled={loading}
                 >
-                  {loading ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.buttonText}>Register</Text>
-                  )}
+                  <LinearGradient
+                    colors={colors.primaryGradient}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={styles.button}
+                  >
+                    {loading ? (
+                      <ActivityIndicator size="small" color="#fff" />
+                    ) : (
+                      <Text style={styles.buttonText}>Register</Text>
+                    )}
+                  </LinearGradient>
                 </Pressable>
               </Animated.View>
 
@@ -206,55 +211,73 @@ const styles = StyleSheet.create({
   wrapper: {
     flex: 1,
     justifyContent: 'center',
+    backgroundColor: colors.background,
   },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
-    padding: 20,
+    padding: spacing.xl,
     paddingBottom: 250,
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 24,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 6 },
-    shadowRadius: 8,
-    elevation: 4,
+    backgroundColor: colors.surface,
+    borderRadius: radius['2xl'],
+    padding: spacing['2xl'],
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.lg,
   },
-  icon: {
+  iconBadge: {
+    width: 76,
+    height: 76,
+    borderRadius: radius.full,
     alignSelf: 'center',
-    marginBottom: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+    ...shadows.primary,
   },
   title: {
     fontSize: 24,
-    fontFamily: 'Poppins_600SemiBold',
+    fontFamily: fonts.bold,
     textAlign: 'center',
-    color: '#1e293b',
-    marginBottom: 20,
+    color: colors.text,
+  },
+  subtitle: {
+    fontSize: 14,
+    fontFamily: fonts.regular,
+    textAlign: 'center',
+    color: colors.textMuted,
+    marginTop: 4,
+    marginBottom: spacing.xl,
   },
   input: {
-    backgroundColor: '#f1f5f9',
-    padding: 12,
-    borderRadius: 8,
+    backgroundColor: colors.surfaceMuted,
+    paddingVertical: 13,
+    paddingHorizontal: spacing.lg,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
     fontSize: 15,
-    fontFamily: 'Poppins_400Regular',
-    marginBottom: 12,
-    color: '#1e293b',
+    fontFamily: fonts.regular,
+    marginBottom: spacing.md,
+    color: colors.text,
   },
   inputWrapper: {
     position: 'relative',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   inputField: {
-    backgroundColor: '#f1f5f9',
-    padding: 12,
-    paddingRight: 40,
-    borderRadius: 8,
+    backgroundColor: colors.surfaceMuted,
+    paddingVertical: 13,
+    paddingHorizontal: spacing.lg,
+    paddingRight: 44,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: colors.border,
     fontSize: 15,
-    fontFamily: 'Poppins_400Regular',
-    color: '#1f2937',
+    fontFamily: fonts.regular,
+    color: colors.text,
   },
   eyeButton: {
     position: 'absolute',
@@ -263,55 +286,57 @@ const styles = StyleSheet.create({
     transform: [{ translateY: -10 }],
     padding: 4,
   },
+  buttonShadow: {
+    marginTop: spacing.md,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
+    ...shadows.primary,
+  },
   button: {
-    backgroundColor: '#2563eb',
-    paddingVertical: 12,
-    borderRadius: 10,
-    marginTop: 10,
+    paddingVertical: 14,
+    borderRadius: radius.lg,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   buttonText: {
-    color: '#ffffff',
+    color: colors.textOnPrimary,
     fontSize: 16,
-    fontFamily: 'Poppins_600SemiBold',
+    fontFamily: fonts.semibold,
     textAlign: 'center',
   },
   switchText: {
-    marginTop: 18,
+    marginTop: spacing.lg,
     textAlign: 'center',
-    color: '#64748b',
-    fontFamily: 'Poppins_400Regular',
+    color: colors.textMuted,
+    fontFamily: fonts.regular,
     fontSize: 13.5,
   },
   link: {
-    color: '#2563eb',
-    fontFamily: 'Poppins_600SemiBold',
+    color: colors.primary,
+    fontFamily: fonts.semibold,
   },
   statusBanner: {
     position: 'absolute',
     bottom: 30,
-    left: 20,
-    right: 20,
-    padding: 12,
-    borderRadius: 10,
+    left: spacing.xl,
+    right: spacing.xl,
+    padding: spacing.lg,
+    borderRadius: radius.md,
     borderLeftWidth: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.12,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 5,
-    elevation: 3,
+    ...shadows.md,
     zIndex: 100,
   },
   statusText: {
     fontSize: 14,
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: fonts.medium,
     textAlign: 'center',
   },
   error: {
-    backgroundColor: '#fee2e2',
-    borderLeftColor: '#dc2626',
+    backgroundColor: colors.dangerSoft,
+    borderLeftColor: colors.danger,
   },
   success: {
-    backgroundColor: '#d1fae5',
-    borderLeftColor: '#059669',
+    backgroundColor: colors.successSoft,
+    borderLeftColor: colors.success,
   },
 });

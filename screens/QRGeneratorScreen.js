@@ -14,11 +14,9 @@ import QRCodeDisplay from '../components/QRCodeDisplay';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
-import {
-  useFonts,
-  Poppins_600SemiBold,
-  Poppins_400Regular,
-} from '@expo-google-fonts/poppins';
+import { LinearGradient } from '../components/ui/Gradient';
+import { colors, spacing, radius, fonts, shadows } from '../theme';
+import { useSeason } from '../contexts/SeasonContext';
 
 const generateCode = (length = 6) => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -26,6 +24,7 @@ const generateCode = (length = 6) => {
 };
 
 export default function QRGeneratorScreen() {
+  const { currentSeason } = useSeason();
   const [title, setTitle] = useState('');
   const [sessionId, setSessionId] = useState('');
   const [sessionCode, setSessionCode] = useState('');
@@ -33,11 +32,6 @@ export default function QRGeneratorScreen() {
 
   const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
   const [showStatus, setShowStatus] = useState(false);
-
-  const [fontsLoaded] = useFonts({
-    Poppins_600SemiBold,
-    Poppins_400Regular,
-  });
 
   const showBanner = (type, text) => {
     setStatusMessage({ type, text });
@@ -61,6 +55,7 @@ export default function QRGeneratorScreen() {
         title: title.trim(),
         createdBy: auth.currentUser.uid,
         code,
+        season: currentSeason,
         timestamp: Timestamp.now(),
         expiresAt: Timestamp.fromDate(new Date(Date.now() + 30 * 60 * 1000)) // 30 minutes
       });
@@ -77,8 +72,6 @@ export default function QRGeneratorScreen() {
     }
   };
 
-  if (!fontsLoaded) return null;
-
   return (
     <AppBackgroundWrapper>
       <ScrollView style={styles.container} contentContainerStyle={styles.content}>
@@ -93,22 +86,30 @@ export default function QRGeneratorScreen() {
             value={title}
             onChangeText={setTitle}
             style={styles.input}
-            placeholderTextColor="#94a3b8"
+            placeholderTextColor={colors.textMuted}
           />
 
           <TouchableOpacity
-            style={styles.button}
+            style={styles.buttonShadow}
             onPress={createSession}
             disabled={loading}
+            activeOpacity={0.9}
           >
-            {loading ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <>
-                <Icon name="qr-code-outline" size={20} color="#fff" />
-                <Text style={styles.buttonText}>Generate QR</Text>
-              </>
-            )}
+            <LinearGradient
+              colors={colors.primaryGradient}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.button}
+            >
+              {loading ? (
+                <ActivityIndicator color={colors.textOnPrimary} />
+              ) : (
+                <>
+                  <Icon name="qr-code-outline" size={20} color={colors.textOnPrimary} />
+                  <Text style={styles.buttonText}>Generate QR</Text>
+                </>
+              )}
+            </LinearGradient>
           </TouchableOpacity>
         </Animatable.View>
 
@@ -140,113 +141,115 @@ export default function QRGeneratorScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
+  container: { flex: 1, backgroundColor: colors.background },
   content: {
-    padding: 20,
-    paddingBottom: 40,
+    padding: spacing.xl,
+    paddingBottom: spacing['4xl'],
   },
   heading: {
-    fontSize: 24,
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#1e3a8a',
+    fontSize: 23,
+    fontFamily: fonts.bold,
+    color: colors.text,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   card: {
-    backgroundColor: '#f1f5f9',
-    borderRadius: 15,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 6,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    borderRadius: radius['2xl'],
+    padding: spacing.xl,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.md,
   },
   label: {
-    fontSize: 14,
-    fontFamily: 'Poppins_600SemiBold',
-    marginBottom: 8,
-    color: '#334155',
+    fontSize: 13,
+    fontFamily: fonts.semibold,
+    marginBottom: spacing.sm,
+    color: colors.textSecondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 16,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    padding: 13,
+    marginBottom: spacing.lg,
     fontSize: 16,
-    backgroundColor: '#ffffff',
-    color: '#0f172a',
-    fontFamily: 'Poppins_400Regular',
+    backgroundColor: colors.surfaceMuted,
+    color: colors.text,
+    fontFamily: fonts.regular,
+  },
+  buttonShadow: {
+    marginTop: spacing.sm,
+    borderRadius: radius.lg,
+    backgroundColor: colors.primary,
+    ...shadows.primary,
   },
   button: {
     flexDirection: 'row',
     gap: 10,
-    backgroundColor: '#4f46e5',
     padding: 14,
-    borderRadius: 10,
+    borderRadius: radius.lg,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
   },
   buttonText: {
-    color: '#fff',
+    color: colors.textOnPrimary,
     fontSize: 16,
-    fontFamily: 'Poppins_600SemiBold',
+    fontFamily: fonts.semibold,
   },
   resultCard: {
-    marginTop: 30,
-    backgroundColor: '#f8fafc',
-    borderRadius: 15,
-    padding: 20,
+    marginTop: spacing['2xl'],
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.xl,
+    padding: spacing.xl,
     alignItems: 'center',
-    elevation: 2,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   resultTitle: {
     fontSize: 18,
-    fontFamily: 'Poppins_600SemiBold',
-    marginBottom: 10,
-    color: '#0f172a',
+    fontFamily: fonts.semibold,
+    marginBottom: spacing.md,
+    color: colors.text,
   },
   codeText: {
-    marginTop: 16,
+    marginTop: spacing.lg,
     fontSize: 16,
-    fontFamily: 'Poppins_400Regular',
-    color: '#1e293b',
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
   },
   codeValue: {
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#2563eb',
+    fontFamily: fonts.bold,
+    color: colors.primary,
     fontSize: 18,
+    letterSpacing: 1,
   },
   statusBanner: {
     position: 'absolute',
     bottom: 30,
-    left: 20,
-    right: 20,
-    padding: 12,
-    borderRadius: 10,
+    left: spacing.xl,
+    right: spacing.xl,
+    padding: spacing.lg,
+    borderRadius: radius.md,
     borderLeftWidth: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 3,
+    ...shadows.md,
     zIndex: 100,
-    backgroundColor: '#fff',
+    backgroundColor: colors.surface,
   },
   statusText: {
     fontSize: 16,
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: fonts.medium,
     textAlign: 'center',
-    color: '#1e293b',
+    color: colors.text,
   },
   error: {
-    backgroundColor: '#fee2e2',
-    borderLeftColor: '#dc2626',
+    backgroundColor: colors.dangerSoft,
+    borderLeftColor: colors.danger,
   },
   success: {
-    backgroundColor: '#d1fae5',
-    borderLeftColor: '#059669',
+    backgroundColor: colors.successSoft,
+    borderLeftColor: colors.success,
   },
 });

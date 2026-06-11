@@ -5,15 +5,12 @@ import ManualEntryScreen from '../screens/ManualEntryScreen';
 import AttendanceViewScreen from '../screens/AttendanceViewScreen';
 import AdminAttendanceRequestsScreen from '../screens/AdminAttendanceRequestScreen';
 import { Text, StyleSheet } from 'react-native';
-import { useFonts, Poppins_600SemiBold } from '@expo-google-fonts/poppins';
 import SessionDataScreen from '../screens/SessionDataScreen'; // ✅ Add this line
+import { colors, fonts } from '../theme';
 
 const Stack = createNativeStackNavigator();
 
 const HeaderTitle = ({ title }) => {
-  const [fontsLoaded] = useFonts({ Poppins_600SemiBold });
-  if (!fontsLoaded) return null;
-
   return (
     <Text style={styles.headerTitle}>{title}</Text>
   );
@@ -25,10 +22,11 @@ export default function AttendanceStackNavigator() {
       initialRouteName="AttendanceHome"
       screenOptions={{
         headerStyle: {
-          backgroundColor: '#ffffff',
+          backgroundColor: colors.surface,
           shadowOpacity: 0,
           elevation: 0,
         },
+        headerTintColor: colors.primary,
         headerTitleAlign: 'center',
       }}
     >
@@ -75,8 +73,8 @@ export default function AttendanceStackNavigator() {
 
 const styles = StyleSheet.create({
   headerTitle: {
-    fontSize: 22,
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#1e293b',
+    fontSize: 20,
+    fontFamily: fonts.semibold,
+    color: colors.text,
   },
 });
