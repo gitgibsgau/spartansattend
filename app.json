@@ -2,7 +2,7 @@
   "expo": {
     "name": "SpartansAttend",
     "slug": "spartans-attend",
-    "version": "2.3.0",
+    "version": "3.0.0",
     "orientation": "default",
     "icon": "./assets/icon.png",
     "scheme": "spartansattend",
@@ -50,7 +50,8 @@
     "plugins": [
       "expo-secure-store",
       "expo-location",
-      "expo-font"
+      "expo-font",
+      "expo-notifications"
     ],
     "extra": {
       "eas": {

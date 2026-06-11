@@ -1,6 +1,6 @@
 import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import AdminHomeScreen from '../screens/AdminHomeScreen';
+import AdminHomeStackNavigator from './AdminHomeStackNavigator';
 import QRGeneratorScreen from '../screens/QRGeneratorScreen';
 import EventsScreen from '../screens/EventsScreen';
 import AttendanceStackNavigator from './AttendanceStackNavigator';
@@ -9,12 +9,15 @@ import RebindRequests from '../screens/RebindRequests';
 import Icon from 'react-native-vector-icons/Ionicons';
 import DummyLogoutScreen from '../screens/DummyLogoutScreen';
 import AdminParikshanScreen from '../screens/AdminParikshanScreen';
+import { colors, fonts } from '../theme';
+import CustomTabBar from '../components/ui/CustomTabBar';
 
 const Tab = createBottomTabNavigator();
 
 export default function AdminTabsNavigator() {
   return (
     <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={({ route }) => ({
         tabBarIcon: ({ color, size }) => {
           let iconName;
@@ -27,20 +30,45 @@ export default function AdminTabsNavigator() {
 
           return <Icon name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#4F46E5',
-        tabBarInactiveTintColor: 'gray',
-        headerTitleAlign: 'center',
-        headerTitleStyle: {
-          fontFamily: 'Poppins_600SemiBold',
-          fontSize: 18,
-          color: '#1e3a8a',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 6,
         },
+        tabBarLabelStyle: {
+          fontFamily: fonts.medium,
+          fontSize: 11,
+        },
+        headerTitleAlign: 'center',
+        headerStyle: { backgroundColor: colors.surface, shadowOpacity: 0, elevation: 0 },
+        headerTitleStyle: {
+          fontFamily: fonts.semibold,
+          fontSize: 18,
+          color: colors.text,
+        },
+        headerTintColor: colors.primary,
         headerShown: true, // ✅ FIX: ensure headers are shown
       })}
     >
-      <Tab.Screen name="Home" component={AdminHomeScreen} />
-      <Tab.Screen name="QR Generator" component={QRGeneratorScreen} />
-      <Tab.Screen name="Attendance" component={AttendanceStackNavigator} />
+      <Tab.Screen
+        name="Home"
+        component={AdminHomeStackNavigator}
+        options={{ headerShown: false }}
+      />
+      <Tab.Screen
+        name="QR Generator"
+        component={QRGeneratorScreen}
+        options={{ tabBarLabel: 'QR' }}
+      />
+      <Tab.Screen
+        name="Attendance"
+        component={AttendanceStackNavigator}
+        options={{ headerShown: false }}
+      />
       <Tab.Screen
         name="Parikshan"
         component={AdminParikshanScreen}

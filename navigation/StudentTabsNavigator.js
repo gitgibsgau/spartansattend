@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
-import ProfileScreen from '../screens/ProfileScreen';
+import ProfileStackNavigator from './ProfileStackNavigator';
 import AttendanceStackNavigator from './AttendanceStackNavigator';
 import EventsScreen from '../screens/EventsScreen';
 import DummyLogoutScreen from '../screens/DummyLogoutScreen';
@@ -8,6 +8,8 @@ import AdminParikshanScreen from '../screens/AdminParikshanScreen';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { doc, getDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { colors, fonts } from '../theme';
+import CustomTabBar from '../components/ui/CustomTabBar';
 
 const Tab = createBottomTabNavigator();
 
@@ -28,6 +30,7 @@ export default function StudentTabsNavigator() {
 
   return (
     <Tab.Navigator
+      tabBar={(props) => <CustomTabBar {...props} />}
       screenOptions={({ route }) => ({
         tabBarIcon: ({ color, size }) => {
           let iconName;
@@ -39,12 +42,35 @@ export default function StudentTabsNavigator() {
 
           return <Icon name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: '#4F46E5',
-        tabBarInactiveTintColor: 'gray',
+        tabBarActiveTintColor: colors.primary,
+        tabBarInactiveTintColor: colors.textMuted,
+        tabBarStyle: {
+          backgroundColor: colors.surface,
+          borderTopColor: colors.border,
+          height: 60,
+          paddingBottom: 8,
+          paddingTop: 6,
+        },
+        tabBarLabelStyle: {
+          fontFamily: fonts.medium,
+          fontSize: 11,
+        },
+        headerTitleAlign: 'center',
+        headerStyle: { backgroundColor: colors.surface, shadowOpacity: 0, elevation: 0 },
+        headerTitleStyle: { fontFamily: fonts.semibold, fontSize: 18, color: colors.text },
+        headerTintColor: colors.primary,
       })}
     >
-      <Tab.Screen name="Profile" component={ProfileScreen} />
-      <Tab.Screen name="Attendance" component={AttendanceStackNavigator} />
+      <Tab.Screen
+        name="Profile"
+        component={ProfileStackNavigator}
+        options={{ headerShown: false }}
+      />
+      <Tab.Screen
+        name="Attendance"
+        component={AttendanceStackNavigator}
+        options={{ headerShown: false }}
+      />
       <Tab.Screen name="Events" component={EventsScreen} />
       {isScorer && (
         <Tab.Screen

@@ -1,5 +1,7 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { auth, db } from '../firebase';
 import {
     doc,
@@ -13,12 +15,12 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
 import ConfettiCannon from 'react-native-confetti-cannon';
-import {
-    useFonts,
-    Poppins_600SemiBold,
-    Poppins_400Regular,
-} from '@expo-google-fonts/poppins';
+import { useSeason } from '../contexts/SeasonContext';
+import { useNotifications } from '../contexts/NotificationsContext';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
+import { Avatar } from '../components/ui/Avatar';
+import ProgressRing from '../components/ui/ProgressRing';
+import { colors, spacing, radius, fonts, shadows } from '../theme';
 
 // Safely format numbers everywhere (prevents .toFixed on null/undefined)
 const formatScore = (v, digits = 1) =>
@@ -29,26 +31,27 @@ export default function ProfileScreen({ navigation }) {
     const [status, setStatus] = useState({ show: false, type: '', text: '' });
     const [modalVisible, setModalVisible] = useState(false);
 
-    // SINGLE release flag
-    const [parikshanReleased, setParikshanReleased] = useState(false);
+    // Season + per-stage release flags (centralized)
+    const { currentSeason, midReleased, finalReleased } = useSeason();
+    const { unreadCount } = useNotifications();
+    const insets = useSafeAreaInsets();
 
     const [showConfetti, setShowConfetti] = useState(false);
 
-    const [fontsLoaded] = useFonts({
-        Poppins_600SemiBold,
-        Poppins_400Regular,
-    });
-
     // ---- helpers ----
+    // Mid-season average. Supports new docs ({dhol,dhwaj,tasha,maintenance}) and
+    // legacy docs that stored dhol1/dhol2 instead of a single dhol.
     const computeFirstAverage = (data) => {
         if (!data) return { average: null, dholAvg: null, tasha: null, dhwaj: null, maintenance: null };
 
-        let dholAvg = null;
-        const hasD1 = typeof data.dhol1 === 'number';
-        const hasD2 = typeof data.dhol2 === 'number';
-        if (hasD1 && hasD2) dholAvg = (data.dhol1 + data.dhol2) / 2;
-        else if (hasD1) dholAvg = data.dhol1;
-        else if (hasD2) dholAvg = data.dhol2;
+        let dholAvg = typeof data.dhol === 'number' ? data.dhol : null;
+        if (dholAvg === null) {
+            const hasD1 = typeof data.dhol1 === 'number';
+            const hasD2 = typeof data.dhol2 === 'number';
+            if (hasD1 && hasD2) dholAvg = (data.dhol1 + data.dhol2) / 2;
+            else if (hasD1) dholAvg = data.dhol1;
+            else if (hasD2) dholAvg = data.dhol2;
+        }
 
         const tasha = typeof data.tasha === 'number' ? data.tasha : null;
         const dhwaj = typeof data.dhwaj === 'number' ? data.dhwaj : null;
@@ -63,44 +66,50 @@ export default function ProfileScreen({ navigation }) {
     };
 
     const computeFinalAverage = (data) => {
-        if (!data) return { average: null, dhol: null, dhwaj: null, tasha: null };
+        if (!data) return { average: null, dhol: null, dhwaj: null, tasha: null, maintenance: null };
 
         const dhol = typeof data.dhol === 'number' ? data.dhol : null;
         const dhwaj = typeof data.dhwaj === 'number' ? data.dhwaj : null;
-        const tasha = typeof data.tasha === 'number' ? data.tasha : null; // optional
+        const tasha = typeof data.tasha === 'number' ? data.tasha : null;
+        const maintenance = typeof data.maintenance === 'number' ? data.maintenance : null;
 
-        const parts = [dhol, dhwaj, tasha].filter(
+        const parts = [dhol, dhwaj, tasha, maintenance].filter(
             (x) => typeof x === 'number' && !Number.isNaN(x)
         );
         const average = parts.length ? parts.reduce((a, b) => a + b, 0) / parts.length : null;
 
-        return { average, dhol, dhwaj, tasha };
+        return { average, dhol, dhwaj, tasha, maintenance };
     };
 
-    useEffect(() => {
+    useFocusEffect(
+        useCallback(() => {
         const loadUser = async () => {
             try {
                 const uid = auth.currentUser.uid;
                 const userRef = doc(db, 'users', uid);
                 const userSnap = await getDoc(userRef);
 
-                // SINGLE release flag
-                const settingsRef = doc(db, 'globalConfig', 'parikshanSettings');
-                const settingsSnap = await getDoc(settingsRef);
-                const isReleased = settingsSnap.exists() && settingsSnap.data().parikshanReleased === true;
-                setParikshanReleased(isReleased);
-
                 if (userSnap.exists()) {
                     const userData = userSnap.data();
 
-                    // attendance
-                    const attendanceQueryRef = query(collection(db, 'attendance'), where('studentId', '==', uid));
+                    // attendance filtered by season
+                    const attendanceQueryRef = query(
+                        collection(db, 'attendance'),
+                        where('studentId', '==', uid),
+                        where('season', '==', currentSeason)
+                    );
                     const attendanceSnap = await getDocs(attendanceQueryRef);
-                    const sessionsSnap = await getDocs(collection(db, 'sessions'));
+                    
+                    // sessions filtered by season
+                    const sessionsQueryRef = query(
+                        collection(db, 'sessions'),
+                        where('season', '==', currentSeason)
+                    );
+                    const sessionsSnap = await getDocs(sessionsQueryRef);
                     const sessionCount = sessionsSnap.size;
 
-                    // FIRST parikshan
-                    const firstRef = doc(db, 'parikshanScores', uid);
+                    // FIRST parikshan - doc ID includes season
+                    const firstRef = doc(db, 'parikshanScores', `${uid}_${currentSeason}`);
                     const firstSnap = await getDoc(firstRef);
                     const firstData = firstSnap.exists() ? firstSnap.data() : null;
                     const {
@@ -111,8 +120,8 @@ export default function ProfileScreen({ navigation }) {
                         maintenance: firstMaintenance,
                     } = computeFirstAverage(firstData);
 
-                    // FINAL parikshan
-                    const finalRef = doc(db, 'finalParikshanScores', uid);
+                    // FINAL parikshan - doc ID includes season
+                    const finalRef = doc(db, 'finalParikshanScores', `${uid}_${currentSeason}`);
                     const finalSnap = await getDoc(finalRef);
                     const finalData = finalSnap.exists() ? finalSnap.data() : null;
                     const {
@@ -120,17 +129,19 @@ export default function ProfileScreen({ navigation }) {
                         dhol: finalDhol,
                         dhwaj: finalDhwaj,
                         tasha: finalTasha,
+                        maintenance: finalMaintenance,
                     } = computeFinalAverage(finalData);
 
-                    // Weighted (40% First + 60% Final) — treat missing side as 0
+                    // Weighted (40% Mid + 60% Final) — treat missing side as 0
                     const firstComponent = typeof firstAverage === 'number' ? firstAverage : 0;
                     const finalComponent = typeof finalAverage === 'number' ? finalAverage : 0;
                     const weightedAverage = firstComponent * 0.4 + finalComponent * 0.6;
 
-                    // Confetti when any exist for the first time (full picture)
+                    // Confetti the first time any released stage has a score to show.
                     const anyExists = typeof firstAverage === 'number' || typeof finalAverage === 'number';
+                    const anyReleased = midReleased || finalReleased;
                     let shouldShowConfetti = false;
-                    if (isReleased && anyExists && !userData?.confettiCombinedShown) {
+                    if (anyReleased && anyExists && !userData?.confettiCombinedShown) {
                         shouldShowConfetti = true;
                         await setDoc(userRef, { confettiCombinedShown: true }, { merge: true });
                     }
@@ -156,6 +167,7 @@ export default function ProfileScreen({ navigation }) {
                         finalDhol,
                         finalDhwaj,
                         finalTasha,
+                        finalMaintenance,
                     });
 
                     if (shouldShowConfetti) {
@@ -169,68 +181,129 @@ export default function ProfileScreen({ navigation }) {
             }
         };
 
-        loadUser();
-    }, []);
+        // Guard + depend on currentSeason: on first render currentSeason is the
+        // fallback year (set before the globalConfig snapshot resolves). Running
+        // the query then would use a stale/mismatched season and return 0 docs.
+        // Re-run once the real season is available (matches AttendanceViewScreen).
+        if (currentSeason) loadUser();
+        }, [currentSeason, midReleased, finalReleased])
+    );
 
     const showBanner = (type, text) => {
         setStatus({ show: true, type, text });
         setTimeout(() => setStatus({ show: false, type: '', text: '' }), 3000);
     };
 
-    if (!fontsLoaded || !user) return null;
+    if (!user) return null;
 
-    // With single flag: show weighted if released AND at least one side exists
+    // Per-stage display:
+    //  • Once Final is released, show the weighted (40% Mid / 60% Final) score.
+    //  • Otherwise, if only Mid is released, show the Mid-Season score alone.
     const hasFirst = typeof user.averageFirst === 'number';
     const hasFinal = typeof user.averageFinal === 'number';
-    const anyExists = hasFirst || hasFinal;
+    const anyReleased = midReleased || finalReleased;
 
-    const displayValue = parikshanReleased && anyExists ? user.weightedAverage : null;
-    const hasScoresToShow = displayValue != null && parikshanReleased;
+    let scoreView = null;
+    if (finalReleased && (hasFirst || hasFinal)) {
+        scoreView = {
+            label: 'Parikshan Score (Weighted: 40% Mid • 60% Final)',
+            value: user.weightedAverage,
+            note: 'Missing either parikshan is counted as 0 for weighting.',
+        };
+    } else if (midReleased && hasFirst) {
+        scoreView = {
+            label: 'Mid-Season Parikshan Score',
+            value: user.averageFirst,
+            note: 'Final parikshan results will be added later in the season.',
+        };
+    }
+    const hasScoresToShow = !!scoreView;
+
+    // ---- Attendance eligibility (80% needed for event allocations) ----
+    const attended = user.attendanceCount || 0;
+    const totalSessions = user.sessionsCount || 0;
+    const attendanceRatio = totalSessions > 0 ? attended / totalSessions : 0;
+    const attendancePct = Math.round(attendanceRatio * 100);
+    const isEligible = totalSessions > 0 && attendanceRatio >= 0.8;
+    const sessionsToQualify =
+        totalSessions > 0 ? Math.max(0, Math.ceil(0.8 * totalSessions) - attended) : 0;
 
     return (
         <AppBackgroundWrapper>
             <ScrollView
-                contentContainerStyle={styles.scrollContainer}
+                contentContainerStyle={[styles.scrollContainer, { paddingTop: insets.top + spacing.lg }]}
                 keyboardShouldPersistTaps="handled"
                 showsVerticalScrollIndicator={false}
             >
                 <Animatable.View animation="fadeInUp" delay={100} style={styles.container}>
                     <View style={styles.header}>
-                        <Icon name="person-circle-outline" size={90} color="#1E3A8A" />
+                        <Avatar name={user.fullname} color={user.avatarColor} size={96} />
                         <Text style={styles.name}>{user.fullname}</Text>
                         <Text style={styles.text}>{user.email}</Text>
                     </View>
 
                     <View style={styles.card}>
-                        <Text style={styles.cardLabel}>Total Attendance</Text>
-                        <Text style={styles.cardValue}>{user.attendanceCount ?? '0'} out of {user.sessionsCount}</Text>
-                        <Text style={styles.cardLabel}>Attendance %</Text>
-                        <Text style={styles.cardValue}>
-                            {user.attendanceCount > 0
-                                ? `${((user.attendanceCount / user.sessionsCount) * 100).toFixed(1)}%`
-                                : '0%'}
-                        </Text>
+                        <Text style={styles.cardLabel}>Attendance</Text>
+                        <View style={styles.trackerRow}>
+                            <ProgressRing
+                                size={104}
+                                strokeWidth={11}
+                                progress={attendanceRatio}
+                                gradient={isEligible ? [colors.success, '#34D399'] : colors.primaryGradient}
+                                centerLabel={`${attendancePct}%`}
+                                centerSubLabel={`${attended}/${totalSessions}`}
+                            />
+                            <View style={styles.trackerInfo}>
+                                <View
+                                    style={[
+                                        styles.eligibilityPill,
+                                        { backgroundColor: isEligible ? colors.successSoft : colors.warningSoft },
+                                    ]}
+                                >
+                                    <Icon
+                                        name={isEligible ? 'checkmark-circle' : 'alert-circle'}
+                                        size={16}
+                                        color={isEligible ? colors.successDark : colors.warning}
+                                    />
+                                    <Text
+                                        style={[
+                                            styles.eligibilityText,
+                                            { color: isEligible ? colors.successDark : colors.warning },
+                                        ]}
+                                    >
+                                        {isEligible ? 'Eligible for events' : 'Not yet eligible'}
+                                    </Text>
+                                </View>
+                                <Text style={styles.trackerHint}>
+                                    {totalSessions === 0
+                                        ? 'No sessions this season yet.'
+                                        : isEligible
+                                            ? `You've attended ${attended} of ${totalSessions} sessions. Keep it up!`
+                                            : `Attend ${sessionsToQualify} more ${sessionsToQualify === 1 ? 'session' : 'sessions'} to reach 80%.`}
+                                </Text>
+                            </View>
+                        </View>
                         <Text style={styles.amberNote}>
                             Note: 80% attendance is required for event allocations.
                         </Text>
                     </View>
 
                     {/* Pending / No score banners */}
-                    {!parikshanReleased && (
+                    {!anyReleased && (
                         <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
                             <Text style={styles.pendingText}>🎓 Parikshan results will be available soon.</Text>
                         </Animatable.View>
                     )}
 
-                    {parikshanReleased && !hasScoresToShow && (
+                    {anyReleased && !hasScoresToShow && (
                         <Animatable.View animation="fadeInDown" duration={500} style={styles.pendingBanner}>
                             <Text style={styles.pendingText}>No scores available.</Text>
                             <Text style={styles.pendingSubText}>Please contact your Lead/Season Manager if this seems incorrect.</Text>
                         </Animatable.View>
                     )}
 
-                    {/* Weighted score (40% First + 60% Final). Missing side counts as 0. */}
-                    {parikshanReleased && hasScoresToShow && (
+                    {/* Stage-aware score card: Mid-only or Weighted (Mid+Final). */}
+                    {hasScoresToShow && (
                         <>
                             <TouchableOpacity
                                 style={[styles.card, styles.releasedScoreCard]}
@@ -238,15 +311,17 @@ export default function ProfileScreen({ navigation }) {
                                 activeOpacity={0.7}
                             >
                                 <Text style={styles.cardLabel}>
-                                    Parikshan Score (Weighted: 40% First • 60% Final)
+                                    {scoreView.label}
                                 </Text>
                                 <View style={styles.cardRow}>
-                                    <Text style={styles.cardValue}>{formatScore(displayValue, 1)} / 10</Text>
+                                    <Text style={styles.cardValue}>{formatScore(scoreView.value, 1)} / 10</Text>
                                     <Icon name="chevron-forward-outline" size={20} color="#64748b" />
                                 </View>
-                                <Text style={styles.amberNote}>
-                                    Missing either of Parikshan is counted as 0 for weighting.
-                                </Text>
+                                {scoreView.note && (
+                                    <Text style={styles.amberNote}>
+                                        {scoreView.note}
+                                    </Text>
+                                )}
                             </TouchableOpacity>
 
                             {showConfetti && (
@@ -271,6 +346,14 @@ export default function ProfileScreen({ navigation }) {
                     )}
 
                     <View style={styles.card}>
+                        <Text style={styles.cardLabel}>Instrument</Text>
+                        <View style={styles.cardRow}>
+                            <Text style={styles.cardValue}>{user.instrument || 'Not set'}</Text>
+                            <Icon name="musical-notes-outline" size={20} color={colors.primary} />
+                        </View>
+                    </View>
+
+                    <View style={styles.card}>
                         <Text style={styles.cardLabel}>Device</Text>
                         <Text style={styles.cardValue}>{user.deviceId || 'N/A'}</Text>
                     </View>
@@ -288,61 +371,82 @@ export default function ProfileScreen({ navigation }) {
                         </Text>
                     </View>
 
+                    {(!!user.emergencyContactName || !!user.emergencyContactPhone) && (
+                        <View style={styles.card}>
+                            <Text style={styles.cardLabel}>Emergency Contact</Text>
+                            <Text style={styles.cardValue}>
+                                {user.emergencyContactName || 'N/A'}
+                            </Text>
+                            {!!user.emergencyContactPhone && (
+                                <Text style={styles.text}>{user.emergencyContactPhone}</Text>
+                            )}
+                        </View>
+                    )}
+
                     {/* Modal Breakdown */}
                     <Modal visible={modalVisible} transparent animationType="slide">
                         <View style={styles.modalBackdrop}>
                             <View style={styles.modalContent}>
                                 <Text style={styles.modalTitle}>Parikshan Breakdown</Text>
 
-                                {/* First */}
-                                <Text style={[styles.modalSectionTitle]}>First Parikshan</Text>
-                                <Text style={styles.modalItem}>
-                                    Dhol (Avg): {typeof user.firstDholAvg === 'number' ? `${formatScore(user.firstDholAvg, 1)} / 10` : 'N/A'}
-                                </Text>
-                                <Text style={styles.modalItem}>
-                                    Tasha: {typeof user.firstTasha === 'number' ? `${formatScore(user.firstTasha, 1)} / 10` : 'N/A'}
-                                </Text>
-                                <Text style={styles.modalItem}>
-                                    Dhwaj: {typeof user.firstDhwaj === 'number' ? `${formatScore(user.firstDhwaj, 1)} / 10` : 'N/A'}
-                                </Text>
-                                <Text style={styles.modalItem}>
-                                    Maintenance: {typeof user.firstMaintenance === 'number' ? `${formatScore(user.firstMaintenance, 1)} / 10` : 'N/A'}
-                                </Text>
-                                <Text style={[styles.modalItem, styles.modalEm]}>
-                                    First Avg: {typeof user.averageFirst === 'number' ? `${formatScore(user.averageFirst, 1)} / 10` : 'N/A'}
-                                </Text>
+                                {/* Mid-Season (shown once mid is released) */}
+                                {midReleased && (
+                                    <>
+                                        <Text style={[styles.modalSectionTitle]}>Mid-Season Parikshan</Text>
+                                        <Text style={styles.modalItem}>
+                                            Dhol: {typeof user.firstDholAvg === 'number' ? `${formatScore(user.firstDholAvg, 1)} / 10` : 'N/A'}
+                                        </Text>
+                                        <Text style={styles.modalItem}>
+                                            Dhwaj: {typeof user.firstDhwaj === 'number' ? `${formatScore(user.firstDhwaj, 1)} / 10` : 'N/A'}
+                                        </Text>
+                                        <Text style={styles.modalItem}>
+                                            Tasha: {typeof user.firstTasha === 'number' ? `${formatScore(user.firstTasha, 1)} / 10` : 'N/A'}
+                                        </Text>
+                                        <Text style={styles.modalItem}>
+                                            Maintenance: {typeof user.firstMaintenance === 'number' ? `${formatScore(user.firstMaintenance, 1)} / 10` : 'N/A'}
+                                        </Text>
+                                        <Text style={[styles.modalItem, styles.modalEm]}>
+                                            Mid-Season Avg: {typeof user.averageFirst === 'number' ? `${formatScore(user.averageFirst, 1)} / 10` : 'N/A'}
+                                        </Text>
+                                        <View style={{ height: 12 }} />
+                                    </>
+                                )}
 
-                                <View style={{ height: 12 }} />
+                                {/* Final + Weighted (shown once final is released) */}
+                                {finalReleased && (
+                                    <>
+                                        <Text style={[styles.modalSectionTitle]}>Final Parikshan</Text>
+                                        <Text style={styles.modalItem}>
+                                            Dhol: {typeof user.finalDhol === 'number' ? `${formatScore(user.finalDhol, 1)} / 10` : 'N/A'}
+                                        </Text>
+                                        <Text style={styles.modalItem}>
+                                            Dhwaj: {typeof user.finalDhwaj === 'number' ? `${formatScore(user.finalDhwaj, 1)} / 10` : 'N/A'}
+                                        </Text>
+                                        <Text style={styles.modalItem}>
+                                            Tasha: {typeof user.finalTasha === 'number' ? `${formatScore(user.finalTasha, 1)} / 10` : 'N/A'}
+                                        </Text>
+                                        <Text style={styles.modalItem}>
+                                            Maintenance: {typeof user.finalMaintenance === 'number' ? `${formatScore(user.finalMaintenance, 1)} / 10` : 'N/A'}
+                                        </Text>
+                                        <Text style={[styles.modalItem, styles.modalEm]}>
+                                            Final Avg: {typeof user.averageFinal === 'number' ? `${formatScore(user.averageFinal, 1)} / 10` : 'N/A'}
+                                        </Text>
 
-                                {/* Final */}
-                                <Text style={[styles.modalSectionTitle]}>Final Parikshan</Text>
-                                <Text style={styles.modalItem}>
-                                    Dhol: {typeof user.finalDhol === 'number' ? `${formatScore(user.finalDhol, 1)} / 10` : 'N/A'}
-                                </Text>
-                                <Text style={styles.modalItem}>
-                                    Dhwaj: {typeof user.finalDhwaj === 'number' ? `${formatScore(user.finalDhwaj, 1)} / 10` : 'N/A'}
-                                </Text>
-                                <Text style={styles.modalItem}>
-                                    Tasha: {typeof user.finalTasha === 'number' ? `${formatScore(user.finalTasha, 1)} / 10` : 'N/A'}
-                                </Text>
-                                <Text style={[styles.modalItem, styles.modalEm]}>
-                                    Final Avg: {typeof user.averageFinal === 'number' ? `${formatScore(user.averageFinal, 1)} / 10` : 'N/A'}
-                                </Text>
+                                        <View style={{ height: 12 }} />
 
-                                <View style={{ height: 12 }} />
-
-                                {/* Weighted */}
-                                <Text style={[styles.modalSectionTitle]}>Overall (Weighted)</Text>
-                                <Text style={[styles.modalItem, styles.modalEm]}>
-                                    Weighted Avg (40/60): {formatScore(user.weightedAverage, 1)} / 10
-                                </Text>
-                                <Text style={[styles.modalItem]}>{`(First contributes ${formatScore(
-                                    typeof user.averageFirst === 'number' ? user.averageFirst * 0.4 : 0,
-                                    1
-                                )}, Final contributes ${formatScore(
-                                    typeof user.averageFinal === 'number' ? user.averageFinal * 0.6 : 0,
-                                    1
-                                )})`}</Text>
+                                        <Text style={[styles.modalSectionTitle]}>Overall (Weighted)</Text>
+                                        <Text style={[styles.modalItem, styles.modalEm]}>
+                                            Weighted Avg (40/60): {formatScore(user.weightedAverage, 1)} / 10
+                                        </Text>
+                                        <Text style={[styles.modalItem]}>{`(Mid contributes ${formatScore(
+                                            typeof user.averageFirst === 'number' ? user.averageFirst * 0.4 : 0,
+                                            1
+                                        )}, Final contributes ${formatScore(
+                                            typeof user.averageFinal === 'number' ? user.averageFinal * 0.6 : 0,
+                                            1
+                                        )})`}</Text>
+                                    </>
+                                )}
 
                                 <TouchableOpacity style={styles.modalCloseButton} onPress={() => setModalVisible(false)}>
                                     <Text style={styles.modalCloseText}>Close</Text>
@@ -364,6 +468,31 @@ export default function ProfileScreen({ navigation }) {
                     )}
                 </Animatable.View>
             </ScrollView>
+
+            <TouchableOpacity
+                style={[styles.bellFab, { top: insets.top + spacing.sm }]}
+                onPress={() => navigation.navigate('Notifications')}
+                activeOpacity={0.7}
+                accessibilityLabel="Notifications"
+            >
+                <Icon name="notifications-outline" size={22} color={colors.primary} />
+                {unreadCount > 0 && (
+                    <View style={styles.badge}>
+                        <Text style={styles.badgeText}>
+                            {unreadCount > 9 ? '9+' : unreadCount}
+                        </Text>
+                    </View>
+                )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+                style={[styles.editFab, { top: insets.top + spacing.sm }]}
+                onPress={() => navigation.navigate('EditProfile')}
+                activeOpacity={0.7}
+                accessibilityLabel="Edit profile"
+            >
+                <Icon name="create-outline" size={22} color={colors.primary} />
+            </TouchableOpacity>
         </AppBackgroundWrapper>
     );
 }
@@ -372,10 +501,58 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         alignItems: 'center',
+        backgroundColor: '#f8fafc',
+        paddingTop: 24,
+        paddingBottom: 24,
     },
     header: {
         alignItems: 'center',
         marginBottom: 24,
+    },
+    editFab: {
+        position: 'absolute',
+        right: spacing.xl,
+        width: 42,
+        height: 42,
+        borderRadius: radius.full,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+        ...shadows.md,
+    },
+    bellFab: {
+        position: 'absolute',
+        left: spacing.xl,
+        width: 42,
+        height: 42,
+        borderRadius: radius.full,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.surface,
+        borderWidth: 1,
+        borderColor: colors.border,
+        ...shadows.md,
+    },
+    badge: {
+        position: 'absolute',
+        top: -3,
+        right: -3,
+        minWidth: 18,
+        height: 18,
+        borderRadius: radius.full,
+        paddingHorizontal: 4,
+        backgroundColor: colors.danger,
+        borderWidth: 1.5,
+        borderColor: colors.surface,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
+    badgeText: {
+        fontSize: 10,
+        fontFamily: fonts.bold,
+        color: '#fff',
     },
     name: {
         fontSize: 24,
@@ -391,13 +568,14 @@ const styles = StyleSheet.create({
     },
     card: {
         width: '100%',
-        backgroundColor: '#f1f5f9',
-        borderRadius: 16,
-        padding: 16,
-        shadowColor: '#000',
-        shadowOpacity: 0.05,
-        shadowRadius: 6,
-        elevation: 2,
+        backgroundColor: '#ffffff',
+        borderRadius: 20,
+        padding: 18,
+        shadowColor: '#0f172a',
+        shadowOpacity: 0.06,
+        shadowOffset: { width: 0, height: 8 },
+        shadowRadius: 18,
+        elevation: 4,
         marginBottom: 24,
     },
     cardLabel: {
@@ -416,6 +594,36 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+    },
+    trackerRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginTop: spacing.sm,
+        marginBottom: spacing.sm,
+    },
+    trackerInfo: {
+        flex: 1,
+        marginLeft: spacing.lg,
+    },
+    eligibilityPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        alignSelf: 'flex-start',
+        paddingVertical: 5,
+        paddingHorizontal: 10,
+        borderRadius: radius.full,
+        marginBottom: spacing.sm,
+    },
+    eligibilityText: {
+        fontFamily: fonts.semibold,
+        fontSize: 12.5,
+        marginLeft: 5,
+    },
+    trackerHint: {
+        fontFamily: fonts.regular,
+        fontSize: 13,
+        color: colors.textSecondary,
+        lineHeight: 19,
     },
     pendingBanner: {
         width: '100%',

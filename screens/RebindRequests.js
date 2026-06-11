@@ -9,6 +9,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
+import { colors, spacing, radius, fonts, shadows } from '../theme';
 
 export default function RebindRequests({ navigation }) {
   const [requests, setRequests] = useState([]);
@@ -58,7 +59,7 @@ export default function RebindRequests({ navigation }) {
           <Text style={styles.info}>User ID: {item.id}</Text>
         </View>
         <TouchableOpacity onPress={() => handleApprove(item.id)}>
-          <Icon name="checkmark-circle" size={34} color="#10b981" />
+          <Icon name="checkmark-circle" size={34} color={colors.success} />
         </TouchableOpacity>
       </View>
     </Animatable.View>
@@ -67,7 +68,7 @@ export default function RebindRequests({ navigation }) {
   return (
     <AppBackgroundWrapper>
     <View style={styles.container}>
-      <StatusBar backgroundColor="#0f172a" barStyle="light-content" />
+      <StatusBar backgroundColor={colors.background} barStyle="dark-content" />
       <Animatable.Text
         animation="fadeInDown"
         delay={100}
@@ -101,31 +102,31 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     paddingTop: 60,
-    paddingHorizontal: 20,
+    paddingHorizontal: spacing.xl,
+    backgroundColor: colors.background,
   },
   header: {
-    fontSize: 26,
-    fontWeight: '700',
+    fontSize: 24,
+    fontFamily: fonts.bold,
     textAlign: 'center',
-    color: '#1e3a8a',
-    marginBottom: 20,
+    color: colors.text,
+    marginBottom: spacing.xl,
   },
   noRequests: {
     fontSize: 16,
-    color: '#ffffff',
+    color: colors.textMuted,
     textAlign: 'center',
-    marginTop: 40,
+    marginTop: spacing['4xl'],
+    fontFamily: fonts.regular,
   },
   card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 18,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 3,
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    marginBottom: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.md,
   },
   cardContent: {
     flexDirection: 'row',
@@ -133,12 +134,13 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#0f172a',
+    fontFamily: fonts.semibold,
+    color: colors.text,
   },
   info: {
     fontSize: 13,
-    color: '#475569',
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
     marginTop: 4,
   },
 });

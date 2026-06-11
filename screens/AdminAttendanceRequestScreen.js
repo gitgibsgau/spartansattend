@@ -5,7 +5,7 @@ import { db } from '../firebase';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
-import { useFonts, Poppins_600SemiBold, Poppins_400Regular } from '@expo-google-fonts/poppins';
+import { colors, spacing, radius, fonts, shadows } from '../theme';
 
 export default function AdminAttendanceRequestsScreen() {
   const [requests, setRequests] = useState([]);
@@ -62,18 +62,17 @@ export default function AdminAttendanceRequestsScreen() {
     }
   };
 
-  const [fontsLoaded] = useFonts({ Poppins_600SemiBold, Poppins_400Regular });
-  if (!fontsLoaded || loading) {
+  if (loading) {
     return (
       <AppBackgroundWrapper>
-        <ActivityIndicator size="large" color="#4F46E5" style={{ marginTop: 50 }} />
+        <ActivityIndicator size="large" color={colors.primary} style={{ marginTop: 50 }} />
       </AppBackgroundWrapper>
     );
   }
 
   const renderRequest = ({ item, index }) => (
     <Animatable.View animation="fadeInUp" delay={index * 100} style={styles.card}>
-      <Icon name="person-circle-outline" size={28} color="#4F46E5" style={{ marginRight: 10 }} />
+      <Icon name="person-circle-outline" size={28} color={colors.primary} style={{ marginRight: 10 }} />
       <View style={{ flex: 1 }}>
         <Text style={styles.name}>{item.fullname}</Text>
         <Text style={styles.details}>{item.sessionTitle} • {item.sessionDate}</Text>
@@ -109,52 +108,46 @@ export default function AdminAttendanceRequestsScreen() {
 }
 
 const styles = StyleSheet.create({
-  header: { 
-    fontSize: 20, 
-    fontFamily: 'Poppins_600SemiBold',
-    textAlign: 'center', 
-    marginVertical: 20, 
-    color: '#1e293b' 
+  header: {
+    fontSize: 20,
+    fontFamily: fonts.bold,
+    textAlign: 'center',
+    marginVertical: spacing.xl,
+    color: colors.text,
   },
-  card: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    backgroundColor: '#f8fafc', 
-    padding: 15, 
-    borderRadius: 14, 
-    marginBottom: 12,
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 4,
-    elevation: 2,
+  card: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    padding: spacing.lg,
+    borderRadius: radius.lg,
+    marginBottom: spacing.md,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
   },
-  name: { fontSize: 16, fontFamily: 'Poppins_600SemiBold', color: '#1e293b' },
-  details: { fontSize: 14, fontFamily: 'Poppins_400Regular', color: '#64748b', marginTop: 2 },
-  approveBtn: { backgroundColor: '#22c55e', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, marginLeft: 6 },
-  rejectBtn: { backgroundColor: '#ef4444', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, marginLeft: 6 },
-  btnText: { color: '#fff', fontFamily: 'Poppins_600SemiBold' },
-  empty: { textAlign: 'center', color: '#64748b', marginTop: 30, fontSize: 16, fontFamily: 'Poppins_400Regular' },
+  name: { fontSize: 16, fontFamily: fonts.semibold, color: colors.text },
+  details: { fontSize: 14, fontFamily: fonts.regular, color: colors.textMuted, marginTop: 2 },
+  approveBtn: { backgroundColor: colors.success, paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.sm, marginLeft: 6 },
+  rejectBtn: { backgroundColor: colors.danger, paddingHorizontal: 14, paddingVertical: 9, borderRadius: radius.sm, marginLeft: 6 },
+  btnText: { color: '#fff', fontFamily: fonts.semibold, fontSize: 13 },
+  empty: { textAlign: 'center', color: colors.textMuted, marginTop: spacing['2xl'], fontSize: 16, fontFamily: fonts.regular },
   statusBanner: {
     position: 'absolute',
     bottom: 30,
-    left: 20,
-    right: 20,
-    padding: 12,
-    borderRadius: 10,
+    left: spacing.xl,
+    right: spacing.xl,
+    padding: spacing.lg,
+    borderRadius: radius.md,
     borderLeftWidth: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 3,
+    ...shadows.md,
     zIndex: 100,
   },
   statusText: {
     fontSize: 16,
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: fonts.medium,
     textAlign: 'center',
   },
-  error: { backgroundColor: '#fee2e2', borderLeftColor: '#dc2626' },
-  success: { backgroundColor: '#d1fae5', borderLeftColor: '#059669' },
+  error: { backgroundColor: colors.dangerSoft, borderLeftColor: colors.danger },
+  success: { backgroundColor: colors.successSoft, borderLeftColor: colors.success },
 });

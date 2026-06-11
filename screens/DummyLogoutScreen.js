@@ -10,20 +10,11 @@ import { auth } from '../firebase';
 import { useFocusEffect } from '@react-navigation/native';
 import * as Animatable from 'react-native-animatable';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  useFonts,
-  Poppins_600SemiBold,
-  Poppins_400Regular,
-} from '@expo-google-fonts/poppins';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
+import { colors, spacing, radius, fonts, shadows } from '../theme';
 
 export default function DummyLogoutScreen({ navigation }) {
   const [visible, setVisible] = useState(false);
-
-  const [fontsLoaded] = useFonts({
-    Poppins_600SemiBold,
-    Poppins_400Regular,
-  });
 
   useFocusEffect(
     useCallback(() => {
@@ -40,8 +31,6 @@ export default function DummyLogoutScreen({ navigation }) {
     }
   };
 
-  if (!fontsLoaded) return null;
-
   return (
     <AppBackgroundWrapper>
       <View style={styles.wrapper}>
@@ -52,7 +41,9 @@ export default function DummyLogoutScreen({ navigation }) {
               duration={400}
               style={styles.modalContainer}
             >
-              <Ionicons name="log-out-outline" size={40} color="#ef4444" style={styles.icon} />
+              <View style={styles.iconBadge}>
+                <Ionicons name="log-out-outline" size={32} color={colors.danger} />
+              </View>
               <Text style={styles.title}>Confirm Logout</Text>
               <Text style={styles.message}>Are you sure you want to log out?</Text>
               <View style={styles.buttonRow}>
@@ -89,55 +80,60 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
   },
   modalContainer: {
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 24,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing['2xl'],
+    ...shadows.lg,
   },
-  icon: {
+  iconBadge: {
+    width: 64,
+    height: 64,
+    borderRadius: radius.full,
+    backgroundColor: colors.dangerSoft,
+    alignItems: 'center',
+    justifyContent: 'center',
     alignSelf: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
   },
   title: {
     fontSize: 20,
-    fontFamily: 'Poppins_600SemiBold',
+    fontFamily: fonts.bold,
     textAlign: 'center',
-    color: '#1e293b',
+    color: colors.text,
     marginBottom: 6,
   },
   message: {
     fontSize: 14.5,
-    fontFamily: 'Poppins_400Regular',
-    color: '#475569',
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: spacing.xl,
   },
   buttonRow: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
+    justifyContent: 'space-between',
+    gap: spacing.md,
   },
   cancelButton: {
-    backgroundColor: '#e2e8f0',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    flex: 1,
+    backgroundColor: colors.surfaceMuted,
+    paddingVertical: 13,
+    borderRadius: radius.md,
+    alignItems: 'center',
   },
   cancelText: {
-    color: '#1e293b',
-    fontFamily: 'Poppins_600SemiBold',
+    color: colors.text,
+    fontFamily: fonts.semibold,
   },
   logoutButton: {
-    backgroundColor: '#1e293b',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 8,
+    flex: 1,
+    backgroundColor: colors.danger,
+    paddingVertical: 13,
+    borderRadius: radius.md,
+    alignItems: 'center',
   },
   logoutText: {
     color: '#ffffff',
-    fontFamily: 'Poppins_600SemiBold',
+    fontFamily: fonts.semibold,
   },
 });

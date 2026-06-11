@@ -26,11 +26,8 @@ import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  useFonts,
-  Poppins_600SemiBold,
-  Poppins_400Regular,
-} from '@expo-google-fonts/poppins';
+import { useSeason } from '../contexts/SeasonContext';
+import { colors, spacing, radius, fonts, shadows } from '../theme';
 
 const screenWidth = Dimensions.get('window').width;
 const numColumns = 2;
@@ -46,11 +43,6 @@ function getWeekId(date = new Date()) {
 }
 
 export default function AttendanceViewScreen({ navigation }) {
-  const [fontsLoaded] = useFonts({
-    Poppins_600SemiBold,
-    Poppins_400Regular,
-  });
-
   const [sessionData, setSessionData] = useState([]);
   const [markedDates, setMarkedDates] = useState({});
   const [role, setRole] = useState(null);
@@ -59,6 +51,7 @@ export default function AttendanceViewScreen({ navigation }) {
   const [showStatus, setShowStatus] = useState(false);
   const [showCalendar, setShowCalendar] = useState(true);
   const [selectedSession, setSelectedSession] = useState(null);
+  const { currentSeason } = useSeason();
 
   const showBanner = (type, text) => {
     setStatusMessage({ type, text });
@@ -80,7 +73,8 @@ export default function AttendanceViewScreen({ navigation }) {
         const requestsSnap = await getDocs(
           query(
             collection(db, 'attendanceCorrectionRequests'),
-            where('studentId', '==', auth.currentUser.uid)
+            where('studentId', '==', auth.currentUser.uid),
+            where('season', '==', currentSeason)
           )
         );
         const requestData = requestsSnap.docs.map(docSnap => ({
@@ -88,11 +82,15 @@ export default function AttendanceViewScreen({ navigation }) {
           status: docSnap.data().status, // pending, approved, rejected
         }));
 
-        // 🔹 Fetch attendance records
+        // 🔹 Fetch attendance records - filtered by season
         const attendanceQuery =
           userRole === 'admin'
-            ? query(collection(db, 'attendance')) // Admin fetches ALL
-            : query(collection(db, 'attendance'), where('studentId', '==', auth.currentUser.uid));
+            ? query(collection(db, 'attendance'), where('season', '==', currentSeason)) // Admin fetches ALL for current season
+            : query(
+                collection(db, 'attendance'),
+                where('studentId', '==', auth.currentUser.uid),
+                where('season', '==', currentSeason)
+              );
 
         const attendanceSnap = await getDocs(attendanceQuery);
         const rawRecords = attendanceSnap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -108,16 +106,22 @@ export default function AttendanceViewScreen({ navigation }) {
           sessionMap[record.sessionId].attendees.push(record.studentId);
         });
 
-        // 🔹 Also fetch admin's personal attendance (even in admin role)
+        // 🔹 Also fetch admin's personal attendance (even in admin role) - filtered by season
         const myAttendanceSnap = await getDocs(
-          query(collection(db, 'attendance'), where('studentId', '==', auth.currentUser.uid))
+          query(
+            collection(db, 'attendance'),
+            where('studentId', '==', auth.currentUser.uid),
+            where('season', '==', currentSeason)
+          )
         );
         const myAttendance = myAttendanceSnap.docs.map(doc => ({ sessionId: doc.data().sessionId }));
 
         const myAttendanceSet = new Set(myAttendance.map(a => a.sessionId));
 
-        // 🔹 Fetch sessions
-        const sessionsSnap = await getDocs(collection(db, 'sessions'));
+        // 🔹 Fetch sessions - filtered by season
+        const sessionsSnap = await getDocs(
+          query(collection(db, 'sessions'), where('season', '==', currentSeason))
+        );
         const allSessions = sessionsSnap.docs.map(docSnap => {
           const session = docSnap.data();
           const localDate = new Date(session.timestamp.seconds * 1000);
@@ -164,8 +168,8 @@ export default function AttendanceViewScreen({ navigation }) {
       }
     };
 
-    fetchAttendance();
-  }, []);
+    if (currentSeason) fetchAttendance();
+  }, [currentSeason]);
 
 
   const handleDayPress = (day) => {
@@ -183,6 +187,7 @@ export default function AttendanceViewScreen({ navigation }) {
         sessionId: selectedSession.id,
         sessionTitle: selectedSession.sessionTitle,
         sessionDate: selectedSession.sessionDate,
+        season: currentSeason,
         status: 'pending',
         createdAt: serverTimestamp(),
       });
@@ -226,7 +231,8 @@ export default function AttendanceViewScreen({ navigation }) {
       const q = query(
         collection(db, 'attendanceCorrectionRequests'),
         where('studentId', '==', auth.currentUser.uid),
-        where('sessionId', '==', selectedSession.id)
+        where('sessionId', '==', selectedSession.id),
+        where('season', '==', currentSeason)
       );
       const snap = await getDocs(q);
       const deletes = snap.docs.map(docSnap => deleteDoc(doc(db, 'attendanceCorrectionRequests', docSnap.id)));
@@ -289,19 +295,52 @@ export default function AttendanceViewScreen({ navigation }) {
     </TouchableOpacity>
   );
 
-  if (!fontsLoaded || loading) {
+  if (loading) {
     return (
       <AppBackgroundWrapper>
         <View style={styles.loaderContainer}>
-          <ActivityIndicator size="large" color="#4F46E5" />
+          <ActivityIndicator size="large" color={colors.primary} />
         </View>
       </AppBackgroundWrapper>
     );
   }
 
+  const totalSessions = sessionData.length;
+  const attendedCount = sessionData.filter(
+    (s) => s.attended || s.requestStatus === 'approved'
+  ).length;
+  const attendancePct = totalSessions ? Math.round((attendedCount / totalSessions) * 100) : 0;
+
   return (
     <AppBackgroundWrapper>
       <View style={styles.container}>
+        <View style={styles.summaryCard}>
+          <View style={styles.summaryLeft}>
+            <Text style={styles.summaryLabel}>Attendance</Text>
+            <Text style={styles.summaryCount}>
+              {attendedCount}<Text style={styles.summaryCountMuted}> / {totalSessions} sessions</Text>
+            </Text>
+          </View>
+          <View style={styles.summaryPctWrap}>
+            <Text style={styles.summaryPct}>{attendancePct}%</Text>
+          </View>
+        </View>
+
+        <View style={styles.legendRow}>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#22c55e' }]} />
+            <Text style={styles.legendText}>Attended</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#facc15' }]} />
+            <Text style={styles.legendText}>Pending</Text>
+          </View>
+          <View style={styles.legendItem}>
+            <View style={[styles.legendDot, { backgroundColor: '#ef4444' }]} />
+            <Text style={styles.legendText}>Missed</Text>
+          </View>
+        </View>
+
         <TouchableOpacity onPress={() => setShowCalendar(!showCalendar)}>
           <Text style={styles.toggleCalendar}>{showCalendar ? '▴ Hide Calendar' : '▾ Show Calendar'}</Text>
         </TouchableOpacity>
@@ -311,18 +350,20 @@ export default function AttendanceViewScreen({ navigation }) {
             markedDates={markedDates}
             onDayPress={handleDayPress}
             markingType={'custom'}
+            style={styles.calendarCard}
             theme={{
-              backgroundColor: '#fff',
-              calendarBackground: '#fff',
-              textSectionTitleColor: '#64748b',
+              backgroundColor: colors.surface,
+              calendarBackground: colors.surface,
+              textSectionTitleColor: colors.textMuted,
               selectedDayTextColor: '#fff',
-              todayTextColor: '#2563eb',
-              dayTextColor: '#1e293b',
+              todayTextColor: colors.primary,
+              dayTextColor: colors.text,
               textDisabledColor: '#d1d5db',
-              monthTextColor: '#1e293b',
-              textMonthFontFamily: 'Poppins_600SemiBold',
-              textDayFontFamily: 'Poppins_400Regular',
-              textDayHeaderFontFamily: 'Poppins_400Regular',
+              monthTextColor: colors.text,
+              arrowColor: colors.primary,
+              textMonthFontFamily: fonts.semibold,
+              textDayFontFamily: fonts.regular,
+              textDayHeaderFontFamily: fonts.medium,
             }}
           />
         )}
@@ -393,130 +434,197 @@ export default function AttendanceViewScreen({ navigation }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20 },
+  container: { flex: 1, padding: spacing.xl, backgroundColor: colors.background },
   loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  summaryCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.surface,
+    borderRadius: radius.xl,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: spacing.md,
+    ...shadows.sm,
+  },
+  summaryLeft: { flex: 1 },
+  summaryLabel: {
+    fontSize: 12,
+    fontFamily: fonts.medium,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  summaryCount: {
+    fontSize: 22,
+    fontFamily: fonts.bold,
+    color: colors.text,
+    marginTop: 2,
+  },
+  summaryCountMuted: {
+    fontSize: 13,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+  },
+  summaryPctWrap: {
+    backgroundColor: colors.primarySoft,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+  },
+  summaryPct: {
+    fontSize: 20,
+    fontFamily: fonts.bold,
+    color: colors.primaryDark,
+  },
+  legendRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: spacing.lg,
+    marginBottom: spacing.sm,
+  },
+  legendItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  legendDot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+  },
+  legendText: {
+    fontSize: 12,
+    fontFamily: fonts.medium,
+    color: colors.textSecondary,
+  },
+  calendarCard: {
+    borderRadius: radius.xl,
+    paddingBottom: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+    overflow: 'hidden',
+    ...shadows.sm,
+  },
   card: {
-    backgroundColor: '#f1f5f9',
-    borderLeftColor: '#4ade80',
-    borderLeftWidth: 4,
-    borderRadius: 12,
-    padding: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOpacity: 0.1,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 6,
-    marginBottom: 10,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    borderWidth: 1,
+    borderColor: colors.border,
+    ...shadows.sm,
+    marginBottom: spacing.md,
   },
   missedCard: {
-    backgroundColor: '#ffe4e6',
+    backgroundColor: colors.dangerSoft,
     borderLeftWidth: 4,
-    borderLeftColor: '#dc2626',
+    borderLeftColor: colors.danger,
+    borderColor: colors.dangerSoft,
   },
   requestedCard: {
-    backgroundColor: '#fef3c7',
+    backgroundColor: colors.warningSoft,
     borderLeftWidth: 4,
     borderLeftColor: '#facc15',
+    borderColor: colors.warningSoft,
   },
   session: {
     fontSize: 16,
-    fontFamily: 'Poppins_600SemiBold',
-    color: '#1e293b',
-    marginTop: 8,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+    marginTop: spacing.sm,
   },
   student: {
     fontSize: 14,
-    fontFamily: 'Poppins_400Regular',
-    color: '#334155',
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
     marginTop: 4,
   },
   toggleCalendar: {
     fontSize: 14,
-    fontFamily: 'Poppins_400Regular',
-    color: '#4F46E5',
-    marginBottom: 10,
+    fontFamily: fonts.medium,
+    color: colors.primary,
+    marginBottom: spacing.md,
     textAlign: 'center',
   },
   statusBanner: {
     position: 'absolute',
     bottom: 30,
-    left: 20,
-    right: 20,
-    padding: 12,
-    borderRadius: 10,
+    left: spacing.xl,
+    right: spacing.xl,
+    padding: spacing.lg,
+    borderRadius: radius.md,
     borderLeftWidth: 6,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowOffset: { width: 0, height: 2 },
-    shadowRadius: 6,
-    elevation: 3,
+    ...shadows.md,
     zIndex: 100,
   },
   statusText: {
     fontSize: 16,
-    fontFamily: 'Poppins_400Regular',
+    fontFamily: fonts.medium,
     textAlign: 'center',
   },
-  error: { backgroundColor: '#fee2e2', borderLeftColor: '#dc2626' },
-  success: { backgroundColor: '#d1fae5', borderLeftColor: '#059669' },
+  error: { backgroundColor: colors.dangerSoft, borderLeftColor: colors.danger },
+  success: { backgroundColor: colors.successSoft, borderLeftColor: colors.success },
   modalBackdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: colors.overlay,
     justifyContent: 'center',
     alignItems: 'center',
   },
   modalCard: {
-    backgroundColor: '#fff',
-    padding: 24,
-    borderRadius: 14,
-    width: '80%',
+    backgroundColor: colors.surface,
+    padding: spacing['2xl'],
+    borderRadius: radius.xl,
+    width: '84%',
     alignItems: 'center',
+    ...shadows.lg,
   },
   modalTitle: {
     fontSize: 18,
-    fontFamily: 'Poppins_600SemiBold',
-    marginBottom: 8,
-    color: '#1e293b',
+    fontFamily: fonts.bold,
+    marginBottom: spacing.sm,
+    color: colors.text,
   },
   modalStatus: {
     fontSize: 16,
-    fontFamily: 'Poppins_400Regular',
-    color: '#334155',
-    marginBottom: 16,
+    fontFamily: fonts.regular,
+    color: colors.textSecondary,
+    marginBottom: spacing.lg,
   },
   modalCloseButton: {
-    backgroundColor: '#4F46E5',
-    paddingHorizontal: 20,
-    paddingVertical: 10,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingHorizontal: spacing.xl,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    ...shadows.primary,
   },
   modalCloseText: {
-    color: '#fff',
-    fontFamily: 'Poppins_600SemiBold',
+    color: colors.textOnPrimary,
+    fontFamily: fonts.semibold,
     fontSize: 14,
   },
   requestButton: {
     backgroundColor: '#facc15',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginBottom: 12,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.md,
+    marginBottom: spacing.md,
   },
   requestText: {
-    color: '#1e293b',
-    fontFamily: 'Poppins_600SemiBold',
+    color: colors.text,
+    fontFamily: fonts.semibold,
     fontSize: 14,
   },
   undoButton: {
-    backgroundColor: '#e2e8f0',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 8,
-    marginBottom: 12,
+    backgroundColor: colors.surfaceMuted,
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    borderRadius: radius.sm,
+    marginBottom: spacing.md,
   },
   undoText: {
-    color: '#1e293b',
-    fontFamily: 'Poppins_600SemiBold',
+    color: colors.text,
+    fontFamily: fonts.semibold,
     fontSize: 14,
   },
 });
