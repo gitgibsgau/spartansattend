@@ -11,7 +11,7 @@ import {
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import XLSX from 'xlsx';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 import Icon from 'react-native-vector-icons/Ionicons';
