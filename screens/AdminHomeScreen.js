@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import { auth, db } from '../firebase';
 import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -34,18 +35,31 @@ export default function AdminHomeScreen({ navigation }) {
     });
   };
 
-  useEffect(() => {
-    const fetchUserData = async () => {
-      const userRef = doc(db, 'users', auth.currentUser.uid);
-      const userSnap = await getDoc(userRef);
-      if (userSnap.exists()) {
-        setUser(userSnap.data());
-      }
-    };
+  useFocusEffect(
+    useCallback(() => {
+      let active = true;
 
-    fetchUserData();
-    // fetchCounts will be called when season is available via effect below
-  }, []);
+      const fetchUserData = async () => {
+        try {
+          const uid = auth.currentUser?.uid;
+          if (!uid) return;
+          const userRef = doc(db, 'users', uid);
+          const userSnap = await getDoc(userRef);
+          if (active && userSnap.exists()) {
+            setUser(userSnap.data());
+          }
+        } catch (err) {
+          console.warn('Failed to fetch admin user data:', err);
+        }
+      };
+
+      fetchUserData();
+      // fetchCounts is driven by the currentSeason effect below
+      return () => {
+        active = false;
+      };
+    }, [])
+  );
 
   const { currentSeason, activeStage, midReleased, finalReleased } = useSeason();
   const STAGE_LABEL = { mid: 'Mid-Season', final: 'Final' };
