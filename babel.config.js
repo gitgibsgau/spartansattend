@@ -12,7 +12,7 @@ module.exports = function (api) {
           allowUndefined: false,
         },
       ],
-      'react-native-reanimated/plugin', // 👈 Must be LAST in the list
+      'react-native-worklets/plugin', // 👈 Must be LAST (Reanimated 4 moved the plugin here)
     ],
   };
 };
