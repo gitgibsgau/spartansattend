@@ -26,7 +26,11 @@ try {
   const Notifications = require('expo-notifications');
   Notifications.setNotificationHandler({
     handleNotification: async () => ({
+      // SDK 53+ replaced shouldShowAlert with banner/list; keep alert for
+      // back-compat with any older runtime.
       shouldShowAlert: true,
+      shouldShowBanner: true,
+      shouldShowList: true,
       shouldPlaySound: true,
       shouldSetBadge: false,
     }),
