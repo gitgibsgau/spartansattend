@@ -6,13 +6,12 @@ import {
   StyleSheet,
   ActivityIndicator,
   TouchableOpacity,
-  Platform,
 } from 'react-native';
 import { collection, query, where, getDocs, doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import XLSX from 'xlsx';
 import * as FileSystem from 'expo-file-system/legacy';
-import * as MediaLibrary from 'expo-media-library';
+import * as Sharing from 'expo-sharing';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
@@ -74,15 +73,14 @@ export default function SessionDataScreen({ route }) {
         encoding: FileSystem.EncodingType.Base64,
       });
 
-      if (Platform.OS === 'android') {
-        const { status } = await MediaLibrary.requestPermissionsAsync();
-        if (status === 'granted') {
-          const asset = await MediaLibrary.createAssetAsync(uri);
-          await MediaLibrary.createAlbumAsync('Download', asset, false);
-          showBanner('success', 'Excel saved to Downloads');
-        } else {
-          showBanner('error', 'Permission denied to save file');
-        }
+      // Share via the OS share sheet — the admin can save to Files/Downloads,
+      // email it, etc. Avoids broad media-library permissions (Play policy).
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          dialogTitle: 'Export attendance',
+          UTI: 'org.openxmlformats.spreadsheetml.sheet',
+        });
       } else {
         showBanner('success', `Excel saved to:\n${uri}`);
       }
