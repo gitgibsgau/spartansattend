@@ -43,6 +43,7 @@ export default function EditProfileScreen({ navigation }) {
     const [fullname, setFullname] = useState('');
     const [email, setEmail] = useState('');
     const [instrument, setInstrument] = useState(null);
+    const [joinedYear, setJoinedYear] = useState('');
     const [emergencyName, setEmergencyName] = useState('');
     const [emergencyPhone, setEmergencyPhone] = useState('');
     const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
@@ -59,6 +60,7 @@ export default function EditProfileScreen({ navigation }) {
                     setFullname(d.fullname || '');
                     setEmail(d.email || '');
                     setInstrument(d.instrument || null);
+                    setJoinedYear(d.joinedYear ? String(d.joinedYear) : '');
                     setEmergencyName(d.emergencyContactName || '');
                     setEmergencyPhone(d.emergencyContactPhone || '');
                     setAvatarColor(d.avatarColor || AVATAR_COLORS[0]);
@@ -88,6 +90,16 @@ export default function EditProfileScreen({ navigation }) {
             showBanner('error', 'Please enter a valid emergency phone number.');
             return;
         }
+        // Join year — optional, but if present must be a sensible 4-digit year.
+        const currentYear = new Date().getFullYear();
+        let joinedYearValue = null;
+        if (joinedYear.trim()) {
+            joinedYearValue = Number(joinedYear.trim());
+            if (!Number.isInteger(joinedYearValue) || joinedYearValue < 1980 || joinedYearValue > currentYear) {
+                showBanner('error', `Enter a valid join year (1980–${currentYear}).`);
+                return;
+            }
+        }
 
         setSaving(true);
         try {
@@ -97,6 +109,7 @@ export default function EditProfileScreen({ navigation }) {
                 {
                     fullname: fullname.trim(),
                     instrument: instrument || null,
+                    joinedYear: joinedYearValue,
                     emergencyContactName: emergencyName.trim(),
                     emergencyContactPhone: emergencyPhone.trim(),
                     avatarColor,
@@ -198,6 +211,18 @@ export default function EditProfileScreen({ navigation }) {
                                     );
                                 })}
                             </View>
+
+                            <Text style={styles.label}>Year Joined the Pathak</Text>
+                            <TextInput
+                                value={joinedYear}
+                                onChangeText={(t) => setJoinedYear(t.replace(/[^0-9]/g, ''))}
+                                placeholder="e.g. 2021"
+                                placeholderTextColor={colors.textMuted}
+                                style={styles.input}
+                                keyboardType="number-pad"
+                                maxLength={4}
+                            />
+                            <Text style={styles.helper}>Used for your membership tenure & Veteran badge.</Text>
                         </View>
 
                         <View style={styles.card}>
