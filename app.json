@@ -20,6 +20,7 @@
     "ios": {
       "bundleIdentifier": "com.gaurav.spartansattend",
       "buildNumber": "7.0.0",
+      "icon": "./assets/icon-ios.png",
       "infoPlist": {
         "NSCameraUsageDescription": "This app uses the camera to scan attendance QR codes.",
         "NSLocationWhenInUseUsageDescription": "This app uses your location to verify proximity during attendance marking.",
@@ -39,7 +40,7 @@
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
+        "backgroundColor": "#111111"
       },
       "statusBar": {
         "translucent": true,

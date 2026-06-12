@@ -17,6 +17,7 @@ import * as Animatable from 'react-native-animatable';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useSeason } from '../contexts/SeasonContext';
 import { useNotifications } from '../contexts/NotificationsContext';
+import { tallyStreaks, computeBadges } from '../utils/streaks';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 import { Avatar } from '../components/ui/Avatar';
 import ProgressRing from '../components/ui/ProgressRing';
@@ -146,10 +147,43 @@ export default function ProfileScreen({ navigation }) {
                         await setDoc(userRef, { confettiCombinedShown: true }, { merge: true });
                     }
 
+                    // Count events this student has RSVP'd "Going" to this season.
+                    let goingEventsCount = 0;
+                    try {
+                        const evSnap = await getDocs(
+                            query(collection(db, 'events'), where('season', '==', currentSeason))
+                        );
+                        const rsvpChecks = await Promise.all(
+                            evSnap.docs.map(async (evDoc) => {
+                                const rsvpSnap = await getDoc(doc(db, 'events', evDoc.id, 'rsvps', uid));
+                                return rsvpSnap.exists() && rsvpSnap.data().status === 'going';
+                            })
+                        );
+                        goingEventsCount = rsvpChecks.filter(Boolean).length;
+                    } catch (e) {
+                        console.error('Failed to count RSVPs:', e);
+                    }
+
+                    // Attendance streak (reuse the snaps already fetched above).
+                    const attendedIds = new Set(
+                        attendanceSnap.docs.map((d) => d.data().sessionId)
+                    );
+                    const sessionsForStreak = sessionsSnap.docs.map((d) => ({
+                        id: d.id,
+                        ts: d.data().timestamp?.seconds ? d.data().timestamp.seconds * 1000 : 0,
+                    }));
+                    const { currentStreak, longestStreak } = tallyStreaks(
+                        sessionsForStreak,
+                        attendedIds
+                    );
+
                     setUser({
                         ...userData,
                         id: uid,
                         attendanceCount: attendanceSnap.size,
+                        currentStreak,
+                        longestStreak,
+                        goingEventsCount,
                         sessionsCount: sessionCount,
 
                         averageFirst: firstAverage,
@@ -228,6 +262,17 @@ export default function ProfileScreen({ navigation }) {
     const sessionsToQualify =
         totalSessions > 0 ? Math.max(0, Math.ceil(0.8 * totalSessions) - attended) : 0;
 
+    // ---- Streak & badges ----
+    const badges = computeBadges({
+        attended,
+        total: totalSessions,
+        longestStreak: user.longestStreak || 0,
+        joinedYear: user.joinedYear || null,
+        currentSeason,
+    });
+    const earnedBadges = badges.filter((b) => b.earned).length;
+    const currentStreak = user.currentStreak || 0;
+
     return (
         <AppBackgroundWrapper>
             <ScrollView
@@ -287,6 +332,41 @@ export default function ProfileScreen({ navigation }) {
                             Note: 80% attendance is required for event allocations.
                         </Text>
                     </View>
+
+                    <TouchableOpacity
+                        style={styles.card}
+                        onPress={() => navigation.navigate('Achievements')}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.cardLabel}>Streak & Badges</Text>
+                        <View style={styles.cardRow}>
+                            <View style={styles.streakRow}>
+                                <Icon
+                                    name="flame"
+                                    size={22}
+                                    color={currentStreak > 0 ? '#F97316' : colors.textMuted}
+                                />
+                                <Text style={styles.streakValue}>
+                                    {currentStreak} {currentStreak === 1 ? 'session' : 'sessions'} · {earnedBadges}/{badges.length} badges
+                                </Text>
+                            </View>
+                            <Icon name="chevron-forward-outline" size={20} color="#64748b" />
+                        </View>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                        style={styles.card}
+                        onPress={() => navigation.navigate('Events')}
+                        activeOpacity={0.7}
+                    >
+                        <Text style={styles.cardLabel}>My Events</Text>
+                        <View style={styles.cardRow}>
+                            <Text style={styles.cardValue}>
+                                {user.goingEventsCount || 0} {user.goingEventsCount === 1 ? 'event' : 'events'} going
+                            </Text>
+                            <Icon name="chevron-forward-outline" size={20} color="#64748b" />
+                        </View>
+                    </TouchableOpacity>
 
                     {/* Pending / No score banners */}
                     {!anyReleased && (
@@ -594,6 +674,16 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
+    },
+    streakRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    streakValue: {
+        fontSize: 17,
+        fontFamily: 'Poppins_600SemiBold',
+        color: '#1e293b',
     },
     trackerRow: {
         flexDirection: 'row',

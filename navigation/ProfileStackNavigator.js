@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import AchievementsScreen from '../screens/AchievementsScreen';
 import { colors, fonts } from '../theme';
 
 const Stack = createNativeStackNavigator();
@@ -31,6 +32,11 @@ export default function ProfileStackNavigator() {
         name="Notifications"
         component={NotificationsScreen}
         options={{ title: 'Notifications', headerBackTitleVisible: false }}
+      />
+      <Stack.Screen
+        name="Achievements"
+        component={AchievementsScreen}
+        options={{ title: 'Achievements', headerBackTitleVisible: false }}
       />
     </Stack.Navigator>
   );
