@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
 import { auth, db } from '../firebase';
-import { doc, onSnapshot, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, getCountFromServer } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 import * as Animatable from 'react-native-animatable';
@@ -19,18 +19,18 @@ export default function AdminHomeScreen({ navigation }) {
   const [status, setStatus] = useState({ show: false, type: '', text: '' });
 
   const fetchCounts = async (season) => {
-    const usersSnap = await getDocs(collection(db, 'users'));
-    const sessionsQuery = query(collection(db, 'sessions'), where('season', '==', season));
-    const sessionsSnap = await getDocs(sessionsQuery);
-    const rebindsSnap = await getDocs(collection(db, 'users'));
-    const rebindCount = rebindsSnap.docs.filter(
-      (doc) => doc.data().rebindRequest === true
-    ).length;
+    // Server-side aggregation: each count is billed as ~1 read instead of
+    // reading every doc in the collection (was 162 users + sessions, twice).
+    const [studentsAgg, sessionsAgg, rebindsAgg] = await Promise.all([
+      getCountFromServer(collection(db, 'users')),
+      getCountFromServer(query(collection(db, 'sessions'), where('season', '==', season))),
+      getCountFromServer(query(collection(db, 'users'), where('rebindRequest', '==', true))),
+    ]);
 
     setCounts({
-      students: usersSnap.size,
-      sessions: sessionsSnap.size,
-      rebinds: rebindCount,
+      students: studentsAgg.data().count,
+      sessions: sessionsAgg.data().count,
+      rebinds: rebindsAgg.data().count,
     });
   };
 
