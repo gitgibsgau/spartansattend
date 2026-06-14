@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import Toast from 'react-native-toast-message';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import * as Device from 'expo-device';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
+import { getDeviceId } from './utils/deviceId';
 import AdminTabsNavigator from './navigation/AdminTabsNavigator';
 import StudentTabsNavigator from './navigation/StudentTabsNavigator';
 import * as Animatable from 'react-native-animatable';
@@ -43,7 +43,7 @@ export default function AuthGate() {
           }
 
           const data = docSnap.data();
-          const currentDeviceId = Device.modelName || Device.deviceName || 'unknown';
+          const currentDeviceId = await getDeviceId();
 
           if (data.deviceId && data.deviceId !== currentDeviceId) {
             Toast.show({
@@ -59,6 +59,16 @@ export default function AuthGate() {
             }, 2000);
 
             return;
+          }
+
+          // Bind-on-empty: first login of the season or after an admin reset.
+          // This is what actually re-attaches a device once deviceId is null.
+          if (!data.deviceId) {
+            try {
+              await updateDoc(doc(db, 'users', uid), { deviceId: currentDeviceId });
+            } catch (bindErr) {
+              console.warn('Failed to bind device id:', bindErr?.message);
+            }
           }
 
           setUserRole(data.role);

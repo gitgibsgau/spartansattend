@@ -2,6 +2,7 @@ import React from 'react';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import AdminHomeScreen from '../screens/AdminHomeScreen';
 import AdminSendNotificationScreen from '../screens/AdminSendNotificationScreen';
+import ResetDevice from '../screens/ResetDevice';
 import { colors, fonts } from '../theme';
 
 const Stack = createNativeStackNavigator();
@@ -25,6 +26,11 @@ export default function AdminHomeStackNavigator() {
         name="SendNotification"
         component={AdminSendNotificationScreen}
         options={{ title: 'Send Notification', headerBackTitleVisible: false }}
+      />
+      <Stack.Screen
+        name="ResetDevice"
+        component={ResetDevice}
+        options={{ title: 'Device Bindings', headerBackTitleVisible: false }}
       />
     </Stack.Navigator>
   );
