@@ -428,7 +428,11 @@ export default function ProfileScreen({ navigation }) {
                     <View style={styles.card}>
                         <Text style={styles.cardLabel}>Instrument</Text>
                         <View style={styles.cardRow}>
-                            <Text style={styles.cardValue}>{user.instrument || 'Not set'}</Text>
+                            <Text style={styles.cardValue}>
+                                {Array.isArray(user.instrument)
+                                    ? (user.instrument.length ? user.instrument.join(' + ') : 'Not set')
+                                    : (user.instrument || 'Not set')}
+                            </Text>
                             <Icon name="musical-notes-outline" size={20} color={colors.primary} />
                         </View>
                     </View>
