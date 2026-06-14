@@ -16,6 +16,17 @@ function generateId() {
     });
 }
 
+// True if `value` is one of our UUID bindings (vs a legacy model-name string
+// written by an older app version). Used to self-heal the migration: a
+// non-UUID value is treated as unbound so the new code rebinds rather than
+// locking the user out.
+export function isBoundDeviceId(value) {
+    return (
+        typeof value === 'string' &&
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)
+    );
+}
+
 let cached = null;
 
 // Returns this install's device id, generating + persisting one on first use.

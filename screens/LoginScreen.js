@@ -16,7 +16,7 @@ import * as Animatable from 'react-native-animatable';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
-import { getDeviceId } from '../utils/deviceId';
+import { getDeviceId, isBoundDeviceId } from '../utils/deviceId';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from '../components/ui/Gradient';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
@@ -86,14 +86,16 @@ export default function LoginScreen({ navigation }) {
       const registeredDeviceId = userData.deviceId;
       const currentDeviceId = await getDeviceId();
 
-      if (registeredDeviceId && registeredDeviceId !== currentDeviceId) {
+      // Only a real (UUID) binding to a different device blocks. Empty or a
+      // legacy model-name self-heals via the rebind below — no lockout.
+      if (isBoundDeviceId(registeredDeviceId) && registeredDeviceId !== currentDeviceId) {
         showBanner('error', 'You can only log in from your registered device.');
         setLoading(false);
         return;
       }
 
-      // Bind-on-empty: first login of the season / after an admin reset.
-      if (!registeredDeviceId) {
+      // Bind / self-heal: empty or legacy (non-UUID) value → attach this device.
+      if (!isBoundDeviceId(registeredDeviceId)) {
         try {
           await updateDoc(doc(db, 'users', uid), { deviceId: currentDeviceId });
         } catch (bindErr) {

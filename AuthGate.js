@@ -4,7 +4,7 @@ import Toast from 'react-native-toast-message';
 import { onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from './firebase';
-import { getDeviceId } from './utils/deviceId';
+import { getDeviceId, isBoundDeviceId } from './utils/deviceId';
 import AdminTabsNavigator from './navigation/AdminTabsNavigator';
 import StudentTabsNavigator from './navigation/StudentTabsNavigator';
 import * as Animatable from 'react-native-animatable';
@@ -44,8 +44,12 @@ export default function AuthGate() {
 
           const data = docSnap.data();
           const currentDeviceId = await getDeviceId();
+          const boundId = data.deviceId;
 
-          if (data.deviceId && data.deviceId !== currentDeviceId) {
+          // Only a real (UUID) binding to a different device blocks. An empty
+          // value or a legacy model-name (from an older app version) is treated
+          // as unbound and self-heals via the rebind below — no lockout.
+          if (isBoundDeviceId(boundId) && boundId !== currentDeviceId) {
             Toast.show({
               type: 'error',
               text1: 'Device Not Recognized',
@@ -61,9 +65,10 @@ export default function AuthGate() {
             return;
           }
 
-          // Bind-on-empty: first login of the season or after an admin reset.
-          // This is what actually re-attaches a device once deviceId is null.
-          if (!data.deviceId) {
+          // Bind / self-heal: empty or legacy (non-UUID) value → attach this
+          // device. Covers new-season resets and accounts registered on the
+          // old build during OTA rollout.
+          if (!isBoundDeviceId(boundId)) {
             try {
               await updateDoc(doc(db, 'users', uid), { deviceId: currentDeviceId });
             } catch (bindErr) {
