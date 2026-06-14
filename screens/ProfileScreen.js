@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Modal, ScrollView } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -6,6 +6,7 @@ import { auth, db } from '../firebase';
 import {
     doc,
     getDoc,
+    onSnapshot,
     collection,
     query,
     where,
@@ -81,6 +82,26 @@ export default function ProfileScreen({ navigation }) {
 
         return { average, dhol, dhwaj, tasha, maintenance };
     };
+
+    // Live listener for the core user doc. Profile info (name, instrument,
+    // device, avatar) always reflects server truth and is never blanked by a
+    // transient read or by a failure in the multi-read stats load below. The
+    // field guard ignores empty/partial emissions so good data is never wiped.
+    useEffect(() => {
+        const uid = auth.currentUser?.uid;
+        if (!uid) return;
+        const unsub = onSnapshot(
+            doc(db, 'users', uid),
+            (snap) => {
+                const data = snap.data();
+                if (data && (data.fullname || data.email || data.role)) {
+                    setUser((prev) => ({ ...prev, ...data, id: uid }));
+                }
+            },
+            (err) => console.warn('Profile user snapshot error:', err)
+        );
+        return unsub;
+    }, []);
 
     useFocusEffect(
         useCallback(() => {
@@ -177,7 +198,8 @@ export default function ProfileScreen({ navigation }) {
                         attendedIds
                     );
 
-                    setUser({
+                    setUser((prev) => ({
+                        ...prev,
                         ...userData,
                         id: uid,
                         attendanceCount: attendanceSnap.size,
@@ -202,7 +224,7 @@ export default function ProfileScreen({ navigation }) {
                         finalDhwaj,
                         finalTasha,
                         finalMaintenance,
-                    });
+                    }));
 
                     if (shouldShowConfetti) {
                         setTimeout(() => setShowConfetti(true), 1000);
