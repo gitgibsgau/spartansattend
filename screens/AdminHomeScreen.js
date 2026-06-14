@@ -138,6 +138,21 @@ export default function AdminHomeScreen({ navigation }) {
           <Icon name="chevron-forward" size={20} color={colors.textMuted} />
         </TouchableOpacity>
 
+        <TouchableOpacity
+          style={[styles.actionCard, styles.cardSpacing]}
+          onPress={() => navigation.navigate('ResetDevice')}
+          activeOpacity={0.8}
+        >
+          <View style={styles.actionIcon}>
+            <Icon name="phone-portrait-outline" size={22} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.actionTitle}>Device Bindings</Text>
+            <Text style={styles.actionSub}>Reset a student's device, or all devices for a new season</Text>
+          </View>
+          <Icon name="chevron-forward" size={20} color={colors.textMuted} />
+        </TouchableOpacity>
+
         <View style={[styles.infoCard, styles.cardSpacing]}>
           <Text style={styles.sectionTitle}>Parikshan status</Text>
           <View style={styles.statusRow}>

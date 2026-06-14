@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback, useLayoutEffect } from 'react';
 import {
     View,
     Text,
@@ -12,17 +12,27 @@ import {
     Keyboard,
     ActivityIndicator,
 } from 'react-native';
+import { useHeaderHeight } from '@react-navigation/elements';
 import { auth, db } from '../firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
-import { GradientButton } from '../components/ui';
 import { getInitials } from '../components/ui/Avatar';
 import { colors, spacing, radius, fonts, shadows } from '../theme';
 
-// Instruments offered in the pathak. Kept in sync with the parikshan stages.
-const INSTRUMENTS = ['Dhol', 'Tasha', 'Dhwaj'];
+// Self-selectable primary instruments. Dhwaj is not picked directly — it's
+// auto-attached to Dhol players. Zanj and Toll are assigned by the pathak, so
+// they aren't offered here (see the note in the form).
+const PRIMARY_INSTRUMENTS = ['Dhol', 'Tasha'];
+
+// Normalize whatever shape `instrument` is stored as (legacy single string,
+// array, or null) into an array, and enforce the Dhol ⇒ Dhwaj rule.
+const normalizeInstruments = (raw) => {
+    const arr = Array.isArray(raw) ? [...raw] : raw ? [raw] : [];
+    if (arr.includes('Dhol') && !arr.includes('Dhwaj')) arr.push('Dhwaj');
+    return arr;
+};
 
 // Avatar color choices (no photo upload required — works without Storage).
 const AVATAR_COLORS = [
@@ -37,12 +47,14 @@ const AVATAR_COLORS = [
 ];
 
 export default function EditProfileScreen({ navigation }) {
+    const headerHeight = useHeaderHeight();
+
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
 
     const [fullname, setFullname] = useState('');
     const [email, setEmail] = useState('');
-    const [instrument, setInstrument] = useState(null);
+    const [instrument, setInstrument] = useState([]);
     const [joinedYear, setJoinedYear] = useState('');
     const [emergencyName, setEmergencyName] = useState('');
     const [emergencyPhone, setEmergencyPhone] = useState('');
@@ -59,7 +71,7 @@ export default function EditProfileScreen({ navigation }) {
                     const d = snap.data();
                     setFullname(d.fullname || '');
                     setEmail(d.email || '');
-                    setInstrument(d.instrument || null);
+                    setInstrument(normalizeInstruments(d.instrument));
                     setJoinedYear(d.joinedYear ? String(d.joinedYear) : '');
                     setEmergencyName(d.emergencyContactName || '');
                     setEmergencyPhone(d.emergencyContactPhone || '');
@@ -80,7 +92,17 @@ export default function EditProfileScreen({ navigation }) {
         setTimeout(() => setStatus({ show: false, type: '', text: '' }), 3000);
     };
 
-    const handleSave = async () => {
+    // Single primary selection. Picking Dhol auto-attaches Dhwaj; picking the
+    // currently-selected instrument again clears it.
+    const selectPrimary = (inst) => {
+        setInstrument((prev) => {
+            if (prev.includes(inst)) return [];
+            return inst === 'Dhol' ? ['Dhol', 'Dhwaj'] : [inst];
+        });
+    };
+    const dholSelected = instrument.includes('Dhol');
+
+    const handleSave = useCallback(async () => {
         if (!fullname.trim()) {
             showBanner('error', 'Please enter your name.');
             return;
@@ -108,7 +130,7 @@ export default function EditProfileScreen({ navigation }) {
                 doc(db, 'users', uid),
                 {
                     fullname: fullname.trim(),
-                    instrument: instrument || null,
+                    instrument: instrument.length ? instrument : null,
                     joinedYear: joinedYearValue,
                     emergencyContactName: emergencyName.trim(),
                     emergencyContactPhone: emergencyPhone.trim(),
@@ -124,7 +146,27 @@ export default function EditProfileScreen({ navigation }) {
         } finally {
             setSaving(false);
         }
-    };
+    }, [fullname, emergencyPhone, joinedYear, instrument, emergencyName, avatarColor, navigation]);
+
+    // Always-visible Save in the header so there's no scroll-to-bottom hunt.
+    useLayoutEffect(() => {
+        navigation.setOptions({
+            headerRight: () => (
+                <Pressable
+                    onPress={handleSave}
+                    disabled={saving}
+                    hitSlop={10}
+                    style={({ pressed }) => [styles.headerSave, pressed && { opacity: 0.5 }]}
+                >
+                    {saving ? (
+                        <ActivityIndicator size="small" color={colors.primary} />
+                    ) : (
+                        <Text style={styles.headerSaveText}>Save</Text>
+                    )}
+                </Pressable>
+            ),
+        });
+    }, [navigation, handleSave, saving]);
 
     if (loading) {
         return (
@@ -141,11 +183,13 @@ export default function EditProfileScreen({ navigation }) {
             <KeyboardAvoidingView
                 style={{ flex: 1 }}
                 behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                keyboardVerticalOffset={Platform.OS === 'ios' ? headerHeight : 0}
             >
                 <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
                     <ScrollView
                         contentContainerStyle={styles.scroll}
                         keyboardShouldPersistTaps="handled"
+                        keyboardDismissMode="on-drag"
                         showsVerticalScrollIndicator={false}
                     >
                         {/* Avatar preview */}
@@ -196,12 +240,12 @@ export default function EditProfileScreen({ navigation }) {
 
                             <Text style={styles.label}>Instrument</Text>
                             <View style={styles.chipRow}>
-                                {INSTRUMENTS.map((inst) => {
-                                    const selected = instrument === inst;
+                                {PRIMARY_INSTRUMENTS.map((inst) => {
+                                    const selected = instrument.includes(inst);
                                     return (
                                         <Pressable
                                             key={inst}
-                                            onPress={() => setInstrument(selected ? null : inst)}
+                                            onPress={() => selectPrimary(inst)}
                                             style={[styles.chip, selected && styles.chipSelected]}
                                         >
                                             <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
@@ -210,6 +254,22 @@ export default function EditProfileScreen({ navigation }) {
                                         </Pressable>
                                     );
                                 })}
+                                {dholSelected && (
+                                    <View style={[styles.chip, styles.chipLocked]}>
+                                        <Icon name="lock-closed" size={12} color={colors.primaryDark} style={{ marginRight: 5 }} />
+                                        <Text style={[styles.chipText, styles.chipTextSelected]}>Dhwaj · included</Text>
+                                    </View>
+                                )}
+                            </View>
+                            {dholSelected && (
+                                <Text style={styles.helper}>Dhol players also carry Dhwaj — it's added automatically.</Text>
+                            )}
+
+                            <View style={styles.noteBox}>
+                                <Icon name="information-circle-outline" size={16} color={colors.primary} style={{ marginTop: 1 }} />
+                                <Text style={styles.noteText}>
+                                    Zanj and Toll aren't self-selected — spartans are chosen for them by the pathak. If you play Tasha, you may also be picked for Zanj or Toll.
+                                </Text>
                             </View>
 
                             <Text style={styles.label}>Year Joined the Pathak</Text>
@@ -246,14 +306,6 @@ export default function EditProfileScreen({ navigation }) {
                                 keyboardType="phone-pad"
                             />
                         </View>
-
-                        <GradientButton
-                            title="Save Changes"
-                            onPress={handleSave}
-                            loading={saving}
-                            icon={<Icon name="save-outline" size={18} color={colors.textOnPrimary} />}
-                            style={styles.saveBtn}
-                        />
                     </ScrollView>
                 </TouchableWithoutFeedback>
             </KeyboardAvoidingView>
@@ -390,6 +442,13 @@ const styles = StyleSheet.create({
         borderColor: colors.primary,
         backgroundColor: colors.primarySoft,
     },
+    chipLocked: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        borderColor: colors.primary,
+        backgroundColor: colors.primarySoft,
+        opacity: 0.9,
+    },
     chipText: {
         fontSize: 14,
         fontFamily: fonts.medium,
@@ -399,8 +458,30 @@ const styles = StyleSheet.create({
         color: colors.primaryDark,
         fontFamily: fonts.semibold,
     },
-    saveBtn: {
-        marginTop: spacing.sm,
+    noteBox: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: spacing.sm,
+        backgroundColor: colors.primarySoft,
+        borderRadius: radius.md,
+        padding: spacing.md,
+        marginTop: spacing.md,
+    },
+    noteText: {
+        flex: 1,
+        fontSize: 12.5,
+        lineHeight: 18,
+        fontFamily: fonts.regular,
+        color: colors.primaryDark,
+    },
+    headerSave: {
+        paddingHorizontal: spacing.md,
+        paddingVertical: 4,
+    },
+    headerSaveText: {
+        fontSize: 16,
+        fontFamily: fonts.semibold,
+        color: colors.primary,
     },
     statusBanner: {
         position: 'absolute',

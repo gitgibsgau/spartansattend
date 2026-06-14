@@ -14,9 +14,8 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Animatable from 'react-native-animatable';
-import * as Device from 'expo-device';
-import * as SecureStore from 'expo-secure-store';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { getDeviceId } from '../utils/deviceId';
 import { setDoc, doc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,7 +74,7 @@ export default function RegisterScreen({ navigation }) {
     setLoading(true);
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email.trim(), password);
-      const deviceId = Device.modelName || Device.deviceName || 'unknown';
+      const deviceId = await getDeviceId();
 
       await setDoc(doc(db, 'users', userCredential.user.uid), {
         fullname: fullname.trim(),
@@ -84,8 +83,6 @@ export default function RegisterScreen({ navigation }) {
         deviceId,
         createdAt: new Date().toISOString(),
       });
-
-      await SecureStore.setItemAsync('bound_device_id', deviceId);
 
       showBanner('success', 'Registered successfully. Please login.');
       setTimeout(() => navigation.navigate('Login'), 1000);

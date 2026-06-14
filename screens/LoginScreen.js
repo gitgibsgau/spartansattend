@@ -13,10 +13,10 @@ import {
 } from 'react-native';
 import * as Haptics from 'expo-haptics';
 import * as Animatable from 'react-native-animatable';
-import * as Device from 'expo-device';
 import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../firebase';
+import { getDeviceId } from '../utils/deviceId';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from '../components/ui/Gradient';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
@@ -84,7 +84,7 @@ export default function LoginScreen({ navigation }) {
       const userData = userDocSnap.data();
       const role = userData.role;
       const registeredDeviceId = userData.deviceId;
-      const currentDeviceId = Device.modelName || Device.deviceName || 'unknown';
+      const currentDeviceId = await getDeviceId();
 
       if (registeredDeviceId && registeredDeviceId !== currentDeviceId) {
         showBanner('error', 'You can only log in from your registered device.');
@@ -92,7 +92,14 @@ export default function LoginScreen({ navigation }) {
         return;
       }
 
-      // await SecureStore.setItemAsync('bound_device_id', currentDeviceId);
+      // Bind-on-empty: first login of the season / after an admin reset.
+      if (!registeredDeviceId) {
+        try {
+          await updateDoc(doc(db, 'users', uid), { deviceId: currentDeviceId });
+        } catch (bindErr) {
+          console.warn('Failed to bind device id on login:', bindErr?.message);
+        }
+      }
 
       if (role === 'admin') {
         navigation.replace('AdminDashboard');
