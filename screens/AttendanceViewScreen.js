@@ -106,15 +106,23 @@ export default function AttendanceViewScreen({ navigation }) {
           sessionMap[record.sessionId].attendees.push(record.studentId);
         });
 
-        // 🔹 Also fetch admin's personal attendance (even in admin role) - filtered by season
-        const myAttendanceSnap = await getDocs(
-          query(
-            collection(db, 'attendance'),
-            where('studentId', '==', auth.currentUser.uid),
-            where('season', '==', currentSeason)
-          )
-        );
-        const myAttendance = myAttendanceSnap.docs.map(doc => ({ sessionId: doc.data().sessionId }));
+        // 🔹 The student's own attendance. For non-admins, rawRecords already IS
+        // their own attendance (same studentId+season query above), so reuse it
+        // instead of issuing an identical second read. Admins fetched ALL records
+        // above, so they still need a scoped read for their personal attendance.
+        let myAttendance;
+        if (userRole === 'admin') {
+          const myAttendanceSnap = await getDocs(
+            query(
+              collection(db, 'attendance'),
+              where('studentId', '==', auth.currentUser.uid),
+              where('season', '==', currentSeason)
+            )
+          );
+          myAttendance = myAttendanceSnap.docs.map(doc => ({ sessionId: doc.data().sessionId }));
+        } else {
+          myAttendance = rawRecords.map(r => ({ sessionId: r.sessionId }));
+        }
 
         const myAttendanceSet = new Set(myAttendance.map(a => a.sessionId));
 
