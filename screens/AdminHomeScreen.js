@@ -1,8 +1,7 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
-import { useFocusEffect } from '@react-navigation/native';
 import { auth, db } from '../firebase';
-import { doc, getDoc, collection, getDocs, query, where } from 'firebase/firestore';
+import { doc, onSnapshot, collection, getDocs, query, where } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 import * as Animatable from 'react-native-animatable';
@@ -35,31 +34,28 @@ export default function AdminHomeScreen({ navigation }) {
     });
   };
 
-  useFocusEffect(
-    useCallback(() => {
-      let active = true;
+  useEffect(() => {
+    const uid = auth.currentUser?.uid;
+    if (!uid) return;
 
-      const fetchUserData = async () => {
-        try {
-          const uid = auth.currentUser?.uid;
-          if (!uid) return;
-          const userRef = doc(db, 'users', uid);
-          const userSnap = await getDoc(userRef);
-          if (active && userSnap.exists()) {
-            setUser(userSnap.data());
-          }
-        } catch (err) {
-          console.warn('Failed to fetch admin user data:', err);
+    // Live listener instead of a one-shot getDoc: it converges to the server
+    // copy (correcting any partial/transient cache read) and live-updates on
+    // profile edits. The field guard ensures an empty/partial emission can
+    // never blank out an already-populated card.
+    const unsub = onSnapshot(
+      doc(db, 'users', uid),
+      (snap) => {
+        const data = snap.data();
+        if (data && (data.fullname || data.email || data.role)) {
+          setUser((prev) => ({ ...prev, ...data }));
         }
-      };
+      },
+      (err) => console.warn('Admin user snapshot error:', err)
+    );
 
-      fetchUserData();
-      // fetchCounts is driven by the currentSeason effect below
-      return () => {
-        active = false;
-      };
-    }, [])
-  );
+    return unsub;
+    // fetchCounts is driven by the currentSeason effect below
+  }, []);
 
   const { currentSeason, activeStage, midReleased, finalReleased } = useSeason();
   const STAGE_LABEL = { mid: 'Mid-Season', final: 'Final' };
