@@ -298,6 +298,40 @@ export default function EditProfileScreen({ navigation }) {
                         </View>
 
                         <View style={styles.card}>
+                            <Text style={styles.sectionTitle}>Costume Size</Text>
+                            <View style={styles.chipRow}>
+                                {COSTUME_SIZES.map((size) => {
+                                    const selected = costumeSize === size;
+                                    return (
+                                        <Pressable
+                                            key={size}
+                                            onPress={() => setCostumeSize(selected ? null : size)}
+                                            style={[styles.chip, selected && styles.chipSelected]}
+                                        >
+                                            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                                                {size}
+                                            </Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+                            <Text style={styles.helper}>Numeric (chest) size — 32=XXS · 38=M · 48=4XL. Pickup is marked by the costume team.</Text>
+                        </View>
+
+                        <View style={styles.card}>
+                            <Text style={styles.sectionTitle}>Company</Text>
+                            <TextInput
+                                value={company}
+                                onChangeText={setCompany}
+                                placeholder="e.g. Acme Corp"
+                                placeholderTextColor={colors.textMuted}
+                                style={styles.input}
+                                autoCapitalize="words"
+                            />
+                            <Text style={styles.helper}>Used for employer donation-match programs.</Text>
+                        </View>
+
+                        <View style={styles.card}>
                             <Text style={styles.sectionTitle}>Emergency Contact</Text>
                             <Text style={styles.label}>Contact Name</Text>
                             <TextInput
@@ -319,39 +353,6 @@ export default function EditProfileScreen({ navigation }) {
                             />
                         </View>
 
-                        <View style={styles.card}>
-                            <Text style={styles.sectionTitle}>Costume & Company</Text>
-
-                            <Text style={styles.label}>Costume Size</Text>
-                            <View style={styles.chipRow}>
-                                {COSTUME_SIZES.map((size) => {
-                                    const selected = costumeSize === size;
-                                    return (
-                                        <Pressable
-                                            key={size}
-                                            onPress={() => setCostumeSize(selected ? null : size)}
-                                            style={[styles.chip, selected && styles.chipSelected]}
-                                        >
-                                            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                                                {size}
-                                            </Text>
-                                        </Pressable>
-                                    );
-                                })}
-                            </View>
-                            <Text style={styles.helper}>Numeric (chest) size — 32=XXS · 38=M · 48=4XL. Pickup is marked by the costume team.</Text>
-
-                            <Text style={styles.label}>Company</Text>
-                            <TextInput
-                                value={company}
-                                onChangeText={setCompany}
-                                placeholder="e.g. Acme Corp"
-                                placeholderTextColor={colors.textMuted}
-                                style={styles.input}
-                                autoCapitalize="words"
-                            />
-                            <Text style={styles.helper}>Used for employer donation-match programs.</Text>
-                        </View>
                     </ScrollView>
                 </TouchableWithoutFeedback>
             </KeyboardAvoidingView>
