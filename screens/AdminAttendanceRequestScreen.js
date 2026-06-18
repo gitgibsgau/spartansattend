@@ -6,8 +6,10 @@ import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
 import { colors, spacing, radius, fonts, shadows } from '../theme';
+import { useSeason } from '../contexts/SeasonContext';
 
 export default function AdminAttendanceRequestsScreen() {
+  const { currentSeason } = useSeason();
   const [requests, setRequests] = useState([]);
   const [loading, setLoading] = useState(true);
   const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
@@ -37,10 +39,16 @@ export default function AdminAttendanceRequestsScreen() {
 
   const approveRequest = async (req) => {
     try {
+      // Write a canonical attendance doc (must match the QR/manual schema:
+      // season + markedAt) so every season-filtered reader counts it.
+      // Missing `season` was why approved corrections didn't register as
+      // attended in the profile count or the session card.
       await addDoc(collection(db, 'attendance'), {
         studentId: req.studentId,
         sessionId: req.sessionId,
-        timestamp: serverTimestamp(),
+        season: req.season ?? currentSeason,
+        markedAt: serverTimestamp(),
+        corrected: true,
       });
       await updateDoc(doc(db, 'attendanceCorrectionRequests', req.id), { status: 'approved' });
       setRequests(requests.filter(r => r.id !== req.id));
