@@ -26,6 +26,12 @@ import { colors, spacing, radius, fonts, shadows } from '../theme';
 // they aren't offered here (see the note in the form).
 const PRIMARY_INSTRUMENTS = ['Dhol', 'Tasha'];
 
+// Costume sizes students self-report — shown as the numeric (chest) size.
+// Letter equivalents: 32=XXS 34=XS 36=S 38=M 40=L 42=XL 44=2XL 46=3XL 48=4XL.
+// `costumeReceived` is NOT set here — only a costumeAdmin marks it during
+// handout (see ScopedRosterScreen).
+const COSTUME_SIZES = ['32', '34', '36', '38', '40', '42', '44', '46', '48'];
+
 // Normalize whatever shape `instrument` is stored as (legacy single string,
 // array, or null) into an array, and enforce the Dhol ⇒ Dhwaj rule.
 const normalizeInstruments = (raw) => {
@@ -59,6 +65,8 @@ export default function EditProfileScreen({ navigation }) {
     const [emergencyName, setEmergencyName] = useState('');
     const [emergencyPhone, setEmergencyPhone] = useState('');
     const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
+    const [costumeSize, setCostumeSize] = useState(null);
+    const [company, setCompany] = useState('');
 
     const [status, setStatus] = useState({ show: false, type: '', text: '' });
 
@@ -76,6 +84,8 @@ export default function EditProfileScreen({ navigation }) {
                     setEmergencyName(d.emergencyContactName || '');
                     setEmergencyPhone(d.emergencyContactPhone || '');
                     setAvatarColor(d.avatarColor || AVATAR_COLORS[0]);
+                    setCostumeSize(d.costumeSize || null);
+                    setCompany(d.company || '');
                 }
             } catch (err) {
                 console.error('Failed to load profile for edit:', err);
@@ -135,6 +145,8 @@ export default function EditProfileScreen({ navigation }) {
                     emergencyContactName: emergencyName.trim(),
                     emergencyContactPhone: emergencyPhone.trim(),
                     avatarColor,
+                    costumeSize: costumeSize || null,
+                    company: company.trim(),
                 },
                 { merge: true }
             );
@@ -146,7 +158,7 @@ export default function EditProfileScreen({ navigation }) {
         } finally {
             setSaving(false);
         }
-    }, [fullname, emergencyPhone, joinedYear, instrument, emergencyName, avatarColor, navigation]);
+    }, [fullname, emergencyPhone, joinedYear, instrument, emergencyName, avatarColor, costumeSize, company, navigation]);
 
     // Always-visible Save in the header so there's no scroll-to-bottom hunt.
     useLayoutEffect(() => {
@@ -305,6 +317,40 @@ export default function EditProfileScreen({ navigation }) {
                                 style={styles.input}
                                 keyboardType="phone-pad"
                             />
+                        </View>
+
+                        <View style={styles.card}>
+                            <Text style={styles.sectionTitle}>Costume & Company</Text>
+
+                            <Text style={styles.label}>Costume Size</Text>
+                            <View style={styles.chipRow}>
+                                {COSTUME_SIZES.map((size) => {
+                                    const selected = costumeSize === size;
+                                    return (
+                                        <Pressable
+                                            key={size}
+                                            onPress={() => setCostumeSize(selected ? null : size)}
+                                            style={[styles.chip, selected && styles.chipSelected]}
+                                        >
+                                            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
+                                                {size}
+                                            </Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+                            <Text style={styles.helper}>Numeric (chest) size — 32=XXS · 38=M · 48=4XL. Pickup is marked by the costume team.</Text>
+
+                            <Text style={styles.label}>Company</Text>
+                            <TextInput
+                                value={company}
+                                onChangeText={setCompany}
+                                placeholder="e.g. Acme Corp"
+                                placeholderTextColor={colors.textMuted}
+                                style={styles.input}
+                                autoCapitalize="words"
+                            />
+                            <Text style={styles.helper}>Used for employer donation-match programs.</Text>
                         </View>
                     </ScrollView>
                 </TouchableWithoutFeedback>

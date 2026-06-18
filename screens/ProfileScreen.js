@@ -460,6 +460,50 @@ export default function ProfileScreen({ navigation }) {
                     </View>
 
                     <View style={styles.card}>
+                        <Text style={styles.cardLabel}>Costume Size</Text>
+                        <View style={styles.cardRow}>
+                            <Text style={styles.cardValue}>{user.costumeSize || 'Not set'}</Text>
+                            <Icon name="shirt-outline" size={20} color={colors.primary} />
+                        </View>
+                    </View>
+
+                    <View style={styles.card}>
+                        <Text style={styles.cardLabel}>Company</Text>
+                        <View style={styles.cardRow}>
+                            <Text style={styles.cardValue}>{user.company || 'Not set'}</Text>
+                            <Icon name="business-outline" size={20} color={colors.primary} />
+                        </View>
+                    </View>
+
+                    {Array.isArray(user.adminScopes) && user.adminScopes.includes('costume') && (
+                        <TouchableOpacity
+                            style={[styles.card, styles.scopeCard]}
+                            onPress={() => navigation.navigate('ScopedRoster', { scope: 'costume' })}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.cardRow}>
+                                <Text style={styles.cardLabel}>Costume Roster</Text>
+                                <Icon name="chevron-forward-outline" size={20} color={colors.primary} />
+                            </View>
+                            <Text style={styles.text}>Sizes & handout status for all spartans</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    {Array.isArray(user.adminScopes) && user.adminScopes.includes('donation') && (
+                        <TouchableOpacity
+                            style={[styles.card, styles.scopeCard]}
+                            onPress={() => navigation.navigate('ScopedRoster', { scope: 'donation' })}
+                            activeOpacity={0.7}
+                        >
+                            <View style={styles.cardRow}>
+                                <Text style={styles.cardLabel}>Donation Roster</Text>
+                                <Icon name="chevron-forward-outline" size={20} color={colors.primary} />
+                            </View>
+                            <Text style={styles.text}>Company info for donation-match</Text>
+                        </TouchableOpacity>
+                    )}
+
+                    <View style={styles.card}>
                         <Text style={styles.cardLabel}>Device</Text>
                         <Text style={styles.cardValue}>{user.deviceId || 'N/A'}</Text>
                     </View>
@@ -683,6 +727,11 @@ const styles = StyleSheet.create({
         shadowRadius: 18,
         elevation: 4,
         marginBottom: 24,
+    },
+    scopeCard: {
+        borderWidth: 1.5,
+        borderColor: colors.primary,
+        backgroundColor: colors.primarySoft,
     },
     cardLabel: {
         fontSize: 14,

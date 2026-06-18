@@ -4,6 +4,7 @@ import ProfileScreen from '../screens/ProfileScreen';
 import EditProfileScreen from '../screens/EditProfileScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
 import AchievementsScreen from '../screens/AchievementsScreen';
+import ScopedRosterScreen from '../screens/ScopedRosterScreen';
 import { colors, fonts } from '../theme';
 
 const Stack = createNativeStackNavigator();
@@ -37,6 +38,11 @@ export default function ProfileStackNavigator() {
         name="Achievements"
         component={AchievementsScreen}
         options={{ title: 'Achievements', headerBackTitleVisible: false }}
+      />
+      <Stack.Screen
+        name="ScopedRoster"
+        component={ScopedRosterScreen}
+        options={{ title: 'Roster', headerBackTitleVisible: false }}
       />
     </Stack.Navigator>
   );
