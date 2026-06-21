@@ -355,40 +355,29 @@ export default function ProfileScreen({ navigation }) {
                         </Text>
                     </View>
 
-                    <TouchableOpacity
-                        style={styles.card}
-                        onPress={() => navigation.navigate('Achievements')}
-                        activeOpacity={0.7}
-                    >
-                        <Text style={styles.cardLabel}>Streak & Badges</Text>
-                        <View style={styles.cardRow}>
-                            <View style={styles.streakRow}>
-                                <Icon
-                                    name="flame"
-                                    size={22}
-                                    color={currentStreak > 0 ? '#F97316' : colors.textMuted}
-                                />
-                                <Text style={styles.streakValue}>
-                                    {currentStreak} {currentStreak === 1 ? 'session' : 'sessions'} · {earnedBadges}/{badges.length} badges
-                                </Text>
-                            </View>
-                            <Icon name="chevron-forward-outline" size={20} color="#64748b" />
-                        </View>
-                    </TouchableOpacity>
+                    <View style={styles.statsRow}>
+                        <TouchableOpacity
+                            style={styles.tile}
+                            onPress={() => navigation.navigate('Achievements')}
+                            activeOpacity={0.7}
+                        >
+                            <Icon name="flame" size={22} color={currentStreak > 0 ? '#F97316' : colors.textMuted} />
+                            <Text style={styles.tileValue}>{currentStreak}</Text>
+                            <Text style={styles.tileLabel}>session streak</Text>
+                            <Text style={styles.tileSub}>{earnedBadges}/{badges.length} badges</Text>
+                        </TouchableOpacity>
 
-                    <TouchableOpacity
-                        style={styles.card}
-                        onPress={() => navigation.navigate('Events')}
-                        activeOpacity={0.7}
-                    >
-                        <Text style={styles.cardLabel}>My Events</Text>
-                        <View style={styles.cardRow}>
-                            <Text style={styles.cardValue}>
-                                {user.goingEventsCount || 0} {user.goingEventsCount === 1 ? 'event' : 'events'} going
-                            </Text>
-                            <Icon name="chevron-forward-outline" size={20} color="#64748b" />
-                        </View>
-                    </TouchableOpacity>
+                        <TouchableOpacity
+                            style={styles.tile}
+                            onPress={() => navigation.navigate('Events')}
+                            activeOpacity={0.7}
+                        >
+                            <Icon name="calendar-outline" size={22} color={colors.primary} />
+                            <Text style={styles.tileValue}>{user.goingEventsCount || 0}</Text>
+                            <Text style={styles.tileLabel}>events going</Text>
+                            <Text style={styles.tileSub}>Tap to view</Text>
+                        </TouchableOpacity>
+                    </View>
 
                     {/* Pending / No score banners */}
                     {!anyReleased && (
@@ -448,31 +437,45 @@ export default function ProfileScreen({ navigation }) {
                     )}
 
                     <View style={styles.card}>
-                        <Text style={styles.cardLabel}>Instrument</Text>
-                        <View style={styles.cardRow}>
-                            <Text style={styles.cardValue}>
+                        <Text style={styles.cardLabel}>Details</Text>
+
+                        <View style={styles.detailRow}>
+                            <View style={styles.detailLeft}>
+                                <Icon name="musical-notes-outline" size={18} color={colors.primary} />
+                                <Text style={styles.detailLabel}>Instrument</Text>
+                            </View>
+                            <Text style={styles.detailValue}>
                                 {Array.isArray(user.instrument)
                                     ? (user.instrument.length ? user.instrument.join(' + ') : 'Not set')
                                     : (user.instrument || 'Not set')}
                             </Text>
-                            <Icon name="musical-notes-outline" size={20} color={colors.primary} />
                         </View>
-                    </View>
 
-                    <View style={styles.card}>
-                        <View style={styles.cardRow}>
-                            <Text style={styles.cardLabel}>Costume Size</Text>
-                            <Icon name="shirt-outline" size={20} color={colors.primary} />
+                        <View style={styles.detailDivider} />
+                        <View style={styles.detailRow}>
+                            <View style={styles.detailLeft}>
+                                <Icon name="shirt-outline" size={18} color={colors.primary} />
+                                <Text style={styles.detailLabel}>Kurta Set</Text>
+                            </View>
+                            <Text style={styles.detailValue}>{user.kurtaSize || 'Not set'}</Text>
                         </View>
-                        <Text style={styles.cardValue}>Kurta Set: {user.kurtaSize || 'Not set'}</Text>
-                        <Text style={styles.cardValue}>Jacket: {user.jacketSize || 'Not set'}</Text>
-                    </View>
 
-                    <View style={styles.card}>
-                        <Text style={styles.cardLabel}>Company</Text>
-                        <View style={styles.cardRow}>
-                            <Text style={styles.cardValue}>{user.company || 'Not set'}</Text>
-                            <Icon name="business-outline" size={20} color={colors.primary} />
+                        <View style={styles.detailDivider} />
+                        <View style={styles.detailRow}>
+                            <View style={styles.detailLeft}>
+                                <Icon name="shirt-outline" size={18} color={colors.primary} />
+                                <Text style={styles.detailLabel}>Jacket</Text>
+                            </View>
+                            <Text style={styles.detailValue}>{user.jacketSize || 'Not set'}</Text>
+                        </View>
+
+                        <View style={styles.detailDivider} />
+                        <View style={styles.detailRow}>
+                            <View style={styles.detailLeft}>
+                                <Icon name="business-outline" size={18} color={colors.primary} />
+                                <Text style={styles.detailLabel}>Company</Text>
+                            </View>
+                            <Text style={styles.detailValue}>{user.company || 'Not set'}</Text>
                         </View>
                     </View>
 
@@ -709,7 +712,69 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 8 },
         shadowRadius: 18,
         elevation: 4,
-        marginBottom: 24,
+        marginBottom: 16,
+    },
+    statsRow: {
+        flexDirection: 'row',
+        gap: 12,
+        marginBottom: 16,
+    },
+    tile: {
+        flex: 1,
+        backgroundColor: '#ffffff',
+        borderRadius: 20,
+        padding: 16,
+        shadowColor: '#0f172a',
+        shadowOpacity: 0.06,
+        shadowOffset: { width: 0, height: 8 },
+        shadowRadius: 18,
+        elevation: 4,
+        alignItems: 'flex-start',
+    },
+    tileValue: {
+        fontSize: 26,
+        fontFamily: 'Poppins_700Bold',
+        color: '#1e293b',
+        marginTop: 8,
+    },
+    tileLabel: {
+        fontSize: 13,
+        fontFamily: 'Poppins_600SemiBold',
+        color: '#475569',
+    },
+    tileSub: {
+        fontSize: 12,
+        fontFamily: 'Poppins_400Regular',
+        color: '#94a3b8',
+        marginTop: 2,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingVertical: 12,
+    },
+    detailLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 10,
+    },
+    detailLabel: {
+        fontSize: 14,
+        fontFamily: 'Poppins_400Regular',
+        color: '#475569',
+    },
+    detailValue: {
+        fontSize: 15,
+        fontFamily: 'Poppins_600SemiBold',
+        color: '#1e293b',
+        flexShrink: 1,
+        textAlign: 'right',
+        marginLeft: 12,
+    },
+    detailDivider: {
+        height: 1,
+        backgroundColor: '#eef2f7',
     },
     scopeCard: {
         borderWidth: 1.5,
