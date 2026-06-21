@@ -51,6 +51,14 @@ const AVATAR_COLORS = [
     '#2563EB', // blue
     '#DB2777', // pink
     '#475569', // slate
+    '#059669', // emerald
+    '#EAB308', // amber
+    '#06B6D4', // cyan
+    '#0EA5E9', // sky
+    '#C026D3', // fuchsia
+    '#E11D48', // rose
+    '#65A30D', // lime
+    '#9333EA', // purple
 ];
 
 // Optional preset avatar glyphs (themed). Picking one shows it on the chosen
