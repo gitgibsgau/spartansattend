@@ -53,6 +53,10 @@ const AVATAR_COLORS = [
     '#475569', // slate
 ];
 
+// Optional preset avatar glyphs (themed). Picking one shows it on the chosen
+// color; clearing it falls back to the user's initials.
+const AVATAR_EMOJIS = ['🥁', '🚩', '🦁', '🔥', '⭐', '👑', '🎭', '⚔️'];
+
 export default function EditProfileScreen({ navigation }) {
     const headerHeight = useHeaderHeight();
     const insets = useSafeAreaInsets();
@@ -67,6 +71,7 @@ export default function EditProfileScreen({ navigation }) {
     const [emergencyName, setEmergencyName] = useState('');
     const [emergencyPhone, setEmergencyPhone] = useState('');
     const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
+    const [avatarEmoji, setAvatarEmoji] = useState(null);
     const [kurtaSize, setKurtaSize] = useState(null);
     const [jacketSize, setJacketSize] = useState(null);
     const [company, setCompany] = useState('');
@@ -87,6 +92,7 @@ export default function EditProfileScreen({ navigation }) {
                     setEmergencyName(d.emergencyContactName || '');
                     setEmergencyPhone(d.emergencyContactPhone || '');
                     setAvatarColor(d.avatarColor || AVATAR_COLORS[0]);
+                    setAvatarEmoji(d.avatarEmoji || null);
                     setKurtaSize(d.kurtaSize || null);
                     setJacketSize(d.jacketSize || null);
                     setCompany(d.company || '');
@@ -149,6 +155,7 @@ export default function EditProfileScreen({ navigation }) {
                     emergencyContactName: emergencyName.trim(),
                     emergencyContactPhone: emergencyPhone.trim(),
                     avatarColor,
+                    avatarEmoji: avatarEmoji || null,
                     kurtaSize: kurtaSize || null,
                     jacketSize: jacketSize || null,
                     company: company.trim(),
@@ -163,7 +170,7 @@ export default function EditProfileScreen({ navigation }) {
         } finally {
             setSaving(false);
         }
-    }, [fullname, emergencyPhone, joinedYear, instrument, emergencyName, avatarColor, kurtaSize, jacketSize, company, navigation]);
+    }, [fullname, emergencyPhone, joinedYear, instrument, emergencyName, avatarColor, avatarEmoji, kurtaSize, jacketSize, company, navigation]);
 
     // Always-visible Save in the header so there's no scroll-to-bottom hunt.
     useLayoutEffect(() => {
@@ -212,9 +219,36 @@ export default function EditProfileScreen({ navigation }) {
                         {/* Avatar preview */}
                         <Animatable.View animation="fadeInDown" duration={500} style={styles.avatarWrap}>
                             <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-                                <Text style={styles.avatarInitials}>{getInitials(fullname)}</Text>
+                                {avatarEmoji ? (
+                                    <Text style={styles.avatarEmoji}>{avatarEmoji}</Text>
+                                ) : (
+                                    <Text style={styles.avatarInitials}>{getInitials(fullname)}</Text>
+                                )}
                             </View>
-                            <Text style={styles.avatarHint}>Pick your avatar color</Text>
+
+                            <Text style={styles.avatarHint}>Pick an avatar</Text>
+                            <View style={styles.swatchRow}>
+                                <Pressable
+                                    onPress={() => setAvatarEmoji(null)}
+                                    style={[styles.emojiChip, !avatarEmoji && styles.emojiChipSelected]}
+                                >
+                                    <Text style={styles.emojiInitials}>{getInitials(fullname)}</Text>
+                                </Pressable>
+                                {AVATAR_EMOJIS.map((e) => {
+                                    const selected = avatarEmoji === e;
+                                    return (
+                                        <Pressable
+                                            key={e}
+                                            onPress={() => setAvatarEmoji(e)}
+                                            style={[styles.emojiChip, selected && styles.emojiChipSelected]}
+                                        >
+                                            <Text style={styles.emojiGlyph}>{e}</Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+
+                            <Text style={styles.avatarHint}>Pick a color</Text>
                             <View style={styles.swatchRow}>
                                 {AVATAR_COLORS.map((c) => {
                                     const selected = c === avatarColor;
@@ -418,6 +452,31 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 36,
         fontFamily: fonts.bold,
+    },
+    avatarEmoji: {
+        fontSize: 48,
+    },
+    emojiChip: {
+        width: 40,
+        height: 40,
+        borderRadius: radius.full,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.surfaceMuted,
+        borderWidth: 2,
+        borderColor: 'transparent',
+    },
+    emojiChipSelected: {
+        borderColor: colors.primary,
+        backgroundColor: colors.primarySoft,
+    },
+    emojiGlyph: {
+        fontSize: 20,
+    },
+    emojiInitials: {
+        fontSize: 14,
+        fontFamily: fonts.bold,
+        color: colors.textSecondary,
     },
     avatarHint: {
         marginTop: spacing.md,

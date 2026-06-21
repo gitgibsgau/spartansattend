@@ -307,7 +307,7 @@ export default function ProfileScreen({ navigation }) {
             >
                 <Animatable.View animation="fadeInUp" delay={100} style={styles.container}>
                     <View style={styles.header}>
-                        <Avatar name={user.fullname} color={user.avatarColor} size={96} />
+                        <Avatar name={user.fullname} color={user.avatarColor} emoji={user.avatarEmoji} size={96} />
                         <Text style={styles.name}>{user.fullname}</Text>
                         <Text style={styles.text}>{user.email}</Text>
                     </View>
