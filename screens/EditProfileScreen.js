@@ -18,6 +18,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getInitials } from '../components/ui/Avatar';
 import { colors, spacing, radius, fonts, shadows } from '../theme';
 
@@ -25,6 +26,12 @@ import { colors, spacing, radius, fonts, shadows } from '../theme';
 // auto-attached to Dhol players. Zanj and Toll are assigned by the pathak, so
 // they aren't offered here (see the note in the form).
 const PRIMARY_INSTRUMENTS = ['Dhol', 'Tasha'];
+
+// Costume sizes students self-report — shown as the numeric (chest) size.
+// Letter equivalents: 32=XXS 34=XS 36=S 38=M 40=L 42=XL 44=2XL 46=3XL 48=4XL.
+// Kurta Set and Jacket are sized independently. Handout (kurtaReceived /
+// jacketReceived) is NOT set here — only a costumeAdmin marks it.
+const COSTUME_SIZES = ['32', '34', '36', '38', '40', '42', '44', '46', '48'];
 
 // Normalize whatever shape `instrument` is stored as (legacy single string,
 // array, or null) into an array, and enforce the Dhol ⇒ Dhwaj rule.
@@ -44,10 +51,27 @@ const AVATAR_COLORS = [
     '#2563EB', // blue
     '#DB2777', // pink
     '#475569', // slate
+    '#059669', // emerald
+    '#EAB308', // amber
+    '#06B6D4', // cyan
+    '#0EA5E9', // sky
+    '#C026D3', // fuchsia
+    '#E11D48', // rose
+    '#65A30D', // lime
+    '#9333EA', // purple
+];
+
+// Optional preset avatar glyphs (themed). Picking one shows it on the chosen
+// color; clearing it falls back to the user's initials.
+const AVATAR_EMOJIS = [
+    '🥁', '🪘', '🎶', '🎺', '🔥', '⚡', '⭐', '🌟',
+    '🦁', '🐯', '🛡️', '⚔️', '💪', '🏆', '🥇', '🎯',
+    '🚩', '🇮🇳', '🕉️', '🪔', '👑', '🎭',
 ];
 
 export default function EditProfileScreen({ navigation }) {
     const headerHeight = useHeaderHeight();
+    const insets = useSafeAreaInsets();
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -59,6 +83,10 @@ export default function EditProfileScreen({ navigation }) {
     const [emergencyName, setEmergencyName] = useState('');
     const [emergencyPhone, setEmergencyPhone] = useState('');
     const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
+    const [avatarEmoji, setAvatarEmoji] = useState(null);
+    const [kurtaSize, setKurtaSize] = useState(null);
+    const [jacketSize, setJacketSize] = useState(null);
+    const [company, setCompany] = useState('');
 
     const [status, setStatus] = useState({ show: false, type: '', text: '' });
 
@@ -76,6 +104,10 @@ export default function EditProfileScreen({ navigation }) {
                     setEmergencyName(d.emergencyContactName || '');
                     setEmergencyPhone(d.emergencyContactPhone || '');
                     setAvatarColor(d.avatarColor || AVATAR_COLORS[0]);
+                    setAvatarEmoji(d.avatarEmoji || null);
+                    setKurtaSize(d.kurtaSize || null);
+                    setJacketSize(d.jacketSize || null);
+                    setCompany(d.company || '');
                 }
             } catch (err) {
                 console.error('Failed to load profile for edit:', err);
@@ -135,6 +167,10 @@ export default function EditProfileScreen({ navigation }) {
                     emergencyContactName: emergencyName.trim(),
                     emergencyContactPhone: emergencyPhone.trim(),
                     avatarColor,
+                    avatarEmoji: avatarEmoji || null,
+                    kurtaSize: kurtaSize || null,
+                    jacketSize: jacketSize || null,
+                    company: company.trim(),
                 },
                 { merge: true }
             );
@@ -146,7 +182,7 @@ export default function EditProfileScreen({ navigation }) {
         } finally {
             setSaving(false);
         }
-    }, [fullname, emergencyPhone, joinedYear, instrument, emergencyName, avatarColor, navigation]);
+    }, [fullname, emergencyPhone, joinedYear, instrument, emergencyName, avatarColor, avatarEmoji, kurtaSize, jacketSize, company, navigation]);
 
     // Always-visible Save in the header so there's no scroll-to-bottom hunt.
     useLayoutEffect(() => {
@@ -195,9 +231,36 @@ export default function EditProfileScreen({ navigation }) {
                         {/* Avatar preview */}
                         <Animatable.View animation="fadeInDown" duration={500} style={styles.avatarWrap}>
                             <View style={[styles.avatar, { backgroundColor: avatarColor }]}>
-                                <Text style={styles.avatarInitials}>{getInitials(fullname)}</Text>
+                                {avatarEmoji ? (
+                                    <Text style={styles.avatarEmoji}>{avatarEmoji}</Text>
+                                ) : (
+                                    <Text style={styles.avatarInitials}>{getInitials(fullname)}</Text>
+                                )}
                             </View>
-                            <Text style={styles.avatarHint}>Pick your avatar color</Text>
+
+                            <Text style={styles.avatarHint}>Pick an avatar</Text>
+                            <View style={styles.swatchRow}>
+                                <Pressable
+                                    onPress={() => setAvatarEmoji(null)}
+                                    style={[styles.emojiChip, !avatarEmoji && styles.emojiChipSelected]}
+                                >
+                                    <Text style={styles.emojiInitials}>{getInitials(fullname)}</Text>
+                                </Pressable>
+                                {AVATAR_EMOJIS.map((e) => {
+                                    const selected = avatarEmoji === e;
+                                    return (
+                                        <Pressable
+                                            key={e}
+                                            onPress={() => setAvatarEmoji(e)}
+                                            style={[styles.emojiChip, selected && styles.emojiChipSelected]}
+                                        >
+                                            <Text style={styles.emojiGlyph}>{e}</Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+
+                            <Text style={styles.avatarHint}>Pick a color</Text>
                             <View style={styles.swatchRow}>
                                 {AVATAR_COLORS.map((c) => {
                                     const selected = c === avatarColor;
@@ -286,6 +349,57 @@ export default function EditProfileScreen({ navigation }) {
                         </View>
 
                         <View style={styles.card}>
+                            <Text style={styles.sectionTitle}>Costume Size</Text>
+
+                            <Text style={styles.label}>Kurta Set Size</Text>
+                            <View style={styles.chipRow}>
+                                {COSTUME_SIZES.map((size) => {
+                                    const selected = kurtaSize === size;
+                                    return (
+                                        <Pressable
+                                            key={size}
+                                            onPress={() => setKurtaSize(selected ? null : size)}
+                                            style={[styles.chip, selected && styles.chipSelected]}
+                                        >
+                                            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{size}</Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+
+                            <Text style={styles.label}>Jacket Size</Text>
+                            <View style={styles.chipRow}>
+                                {COSTUME_SIZES.map((size) => {
+                                    const selected = jacketSize === size;
+                                    return (
+                                        <Pressable
+                                            key={size}
+                                            onPress={() => setJacketSize(selected ? null : size)}
+                                            style={[styles.chip, selected && styles.chipSelected]}
+                                        >
+                                            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{size}</Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+
+                            <Text style={styles.helper}>Numeric (chest) size — 32=XXS · 38=M · 48=4XL. Handout is marked by the costume team.</Text>
+                        </View>
+
+                        <View style={styles.card}>
+                            <Text style={styles.sectionTitle}>Company</Text>
+                            <TextInput
+                                value={company}
+                                onChangeText={setCompany}
+                                placeholder="e.g. Acme Corp"
+                                placeholderTextColor={colors.textMuted}
+                                style={styles.input}
+                                autoCapitalize="words"
+                            />
+                            <Text style={styles.helper}>Used for employer donation-match programs.</Text>
+                        </View>
+
+                        <View style={styles.card}>
                             <Text style={styles.sectionTitle}>Emergency Contact</Text>
                             <Text style={styles.label}>Contact Name</Text>
                             <TextInput
@@ -306,16 +420,18 @@ export default function EditProfileScreen({ navigation }) {
                                 keyboardType="phone-pad"
                             />
                         </View>
+
                     </ScrollView>
                 </TouchableWithoutFeedback>
             </KeyboardAvoidingView>
 
             {status.show && (
                 <Animatable.View
-                    animation="slideInUp"
+                    animation="slideInDown"
                     duration={300}
                     style={[
                         styles.statusBanner,
+                        { top: insets.top + 12 },
                         status.type === 'error' ? styles.error : styles.success,
                     ]}
                 >
@@ -348,6 +464,31 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 36,
         fontFamily: fonts.bold,
+    },
+    avatarEmoji: {
+        fontSize: 48,
+    },
+    emojiChip: {
+        width: 40,
+        height: 40,
+        borderRadius: radius.full,
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: colors.surfaceMuted,
+        borderWidth: 2,
+        borderColor: 'transparent',
+    },
+    emojiChipSelected: {
+        borderColor: colors.primary,
+        backgroundColor: colors.primarySoft,
+    },
+    emojiGlyph: {
+        fontSize: 20,
+    },
+    emojiInitials: {
+        fontSize: 14,
+        fontFamily: fonts.bold,
+        color: colors.textSecondary,
     },
     avatarHint: {
         marginTop: spacing.md,
@@ -485,7 +626,6 @@ const styles = StyleSheet.create({
     },
     statusBanner: {
         position: 'absolute',
-        bottom: 30,
         left: spacing.xl,
         right: spacing.xl,
         padding: spacing.lg,

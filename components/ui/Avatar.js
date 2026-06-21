@@ -18,9 +18,10 @@ export function getInitials(name) {
         .toUpperCase();
 }
 
-export function Avatar({ name, color, size = 96, withShadow = true }) {
+export function Avatar({ name, color, emoji, size = 96, withShadow = true }) {
     const initials = getInitials(name);
     const fontSize = Math.round(size * 0.38);
+    const emojiSize = Math.round(size * 0.5);
     const base = {
         width: size,
         height: size,
@@ -29,10 +30,17 @@ export function Avatar({ name, color, size = 96, withShadow = true }) {
         justifyContent: 'center',
     };
 
+    // A chosen emoji takes precedence over initials; both sit on the color.
+    const content = emoji ? (
+        <Text style={{ fontSize: emojiSize }}>{emoji}</Text>
+    ) : (
+        <Text style={[styles.initials, { fontSize }]}>{initials}</Text>
+    );
+
     if (color) {
         return (
             <View style={[base, { backgroundColor: color }, withShadow && shadows.primary]}>
-                <Text style={[styles.initials, { fontSize }]}>{initials}</Text>
+                {content}
             </View>
         );
     }
@@ -45,7 +53,7 @@ export function Avatar({ name, color, size = 96, withShadow = true }) {
             end={{ x: 1, y: 1 }}
             style={[base, withShadow && shadows.primary]}
         >
-            <Text style={[styles.initials, { fontSize }]}>{initials}</Text>
+            {content}
         </LinearGradient>
     );
 }

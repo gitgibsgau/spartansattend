@@ -24,11 +24,13 @@ import { checkLocationAccessAndProximity } from '../utils/locationUtils';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from '../components/ui/Gradient';
 import { colors, spacing, radius, fonts, shadows } from '../theme';
 import { useSeason } from '../contexts/SeasonContext';
 
 export default function ManualEntryScreen() {
+  const insets = useSafeAreaInsets();
   const [code, setCode] = useState('');
   const [title, setTitle] = useState('');
   const [sessionId, setSessionId] = useState(null);
@@ -195,10 +197,11 @@ export default function ManualEntryScreen() {
 
         {showStatus && (
           <Animatable.View
-            animation="slideInUp"
+            animation="slideInDown"
             duration={400}
             style={[
               styles.statusBanner,
+              { top: insets.top + 12 },
               statusMessage.type === 'error' ? styles.error : styles.success,
             ]}
           >
@@ -279,7 +282,6 @@ const styles = StyleSheet.create({
   },
   statusBanner: {
     position: 'absolute',
-    bottom: 30,
     left: spacing.xl,
     right: spacing.xl,
     padding: spacing.lg,

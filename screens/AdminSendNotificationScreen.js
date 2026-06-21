@@ -22,6 +22,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { GradientButton } from '../components/ui';
 import { sendPushToTokens } from '../utils/notifications';
 import { colors, spacing, radius, fonts, shadows } from '../theme';
@@ -30,6 +31,7 @@ const TITLE_MAX = 60;
 const BODY_MAX = 240;
 
 export default function AdminSendNotificationScreen() {
+    const insets = useSafeAreaInsets();
     const [title, setTitle] = useState('');
     const [body, setBody] = useState('');
     const [sending, setSending] = useState(false);
@@ -165,10 +167,11 @@ export default function AdminSendNotificationScreen() {
 
             {status.show && (
                 <Animatable.View
-                    animation="slideInUp"
+                    animation="slideInDown"
                     duration={300}
                     style={[
                         styles.banner,
+                        { top: insets.top + 12 },
                         status.type === 'error' ? styles.error : styles.success,
                     ]}
                 >
@@ -255,7 +258,6 @@ const styles = StyleSheet.create({
     },
     banner: {
         position: 'absolute',
-        bottom: 30,
         left: spacing.xl,
         right: spacing.xl,
         padding: spacing.lg,
