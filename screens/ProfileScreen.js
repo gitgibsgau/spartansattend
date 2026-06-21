@@ -504,24 +504,6 @@ export default function ProfileScreen({ navigation }) {
                         </TouchableOpacity>
                     )}
 
-                    <View style={styles.card}>
-                        <Text style={styles.cardLabel}>Device</Text>
-                        <Text style={styles.cardValue}>{user.deviceId || 'N/A'}</Text>
-                    </View>
-
-                    <View style={styles.card}>
-                        <Text style={styles.cardLabel}>Joined</Text>
-                        <Text style={styles.cardValue}>
-                            {user.createdAt
-                                ? new Date(user.createdAt).toLocaleDateString(undefined, {
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric',
-                                })
-                                : 'N/A'}
-                        </Text>
-                    </View>
-
                     {(!!user.emergencyContactName || !!user.emergencyContactPhone) && (
                         <View style={styles.card}>
                             <Text style={styles.cardLabel}>Emergency Contact</Text>
