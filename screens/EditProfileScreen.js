@@ -63,7 +63,11 @@ const AVATAR_COLORS = [
 
 // Optional preset avatar glyphs (themed). Picking one shows it on the chosen
 // color; clearing it falls back to the user's initials.
-const AVATAR_EMOJIS = ['🥁', '🚩', '🦁', '🔥', '⭐', '👑', '🎭', '⚔️'];
+const AVATAR_EMOJIS = [
+    '🥁', '🪘', '🎶', '🎺', '🔥', '⚡', '⭐', '🌟',
+    '🦁', '🐯', '🛡️', '⚔️', '💪', '🏆', '🥇', '🎯',
+    '🚩', '🇮🇳', '🕉️', '🪔', '👑', '🎭',
+];
 
 export default function EditProfileScreen({ navigation }) {
     const headerHeight = useHeaderHeight();
