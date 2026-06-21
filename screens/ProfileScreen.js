@@ -193,7 +193,10 @@ export default function ProfileScreen({ navigation }) {
                         id: d.id,
                         ts: d.data().timestamp?.seconds ? d.data().timestamp.seconds * 1000 : 0,
                     }));
-                    const { currentStreak, longestStreak } = tallyStreaks(
+                    // `attended` from tallyStreaks counts only sessions that still
+                    // exist this season — excludes orphaned attendance docs left
+                    // behind when a session is deleted (raw size would over-count).
+                    const { attended: attendedCount, currentStreak, longestStreak } = tallyStreaks(
                         sessionsForStreak,
                         attendedIds
                     );
@@ -202,7 +205,7 @@ export default function ProfileScreen({ navigation }) {
                         ...prev,
                         ...userData,
                         id: uid,
-                        attendanceCount: attendanceSnap.size,
+                        attendanceCount: attendedCount,
                         currentStreak,
                         longestStreak,
                         goingEventsCount,
