@@ -28,8 +28,8 @@ const PRIMARY_INSTRUMENTS = ['Dhol', 'Tasha'];
 
 // Costume sizes students self-report — shown as the numeric (chest) size.
 // Letter equivalents: 32=XXS 34=XS 36=S 38=M 40=L 42=XL 44=2XL 46=3XL 48=4XL.
-// `costumeReceived` is NOT set here — only a costumeAdmin marks it during
-// handout (see ScopedRosterScreen).
+// Kurta Set and Jacket are sized independently. Handout (kurtaReceived /
+// jacketReceived) is NOT set here — only a costumeAdmin marks it.
 const COSTUME_SIZES = ['32', '34', '36', '38', '40', '42', '44', '46', '48'];
 
 // Normalize whatever shape `instrument` is stored as (legacy single string,
@@ -65,7 +65,8 @@ export default function EditProfileScreen({ navigation }) {
     const [emergencyName, setEmergencyName] = useState('');
     const [emergencyPhone, setEmergencyPhone] = useState('');
     const [avatarColor, setAvatarColor] = useState(AVATAR_COLORS[0]);
-    const [costumeSize, setCostumeSize] = useState(null);
+    const [kurtaSize, setKurtaSize] = useState(null);
+    const [jacketSize, setJacketSize] = useState(null);
     const [company, setCompany] = useState('');
 
     const [status, setStatus] = useState({ show: false, type: '', text: '' });
@@ -84,7 +85,8 @@ export default function EditProfileScreen({ navigation }) {
                     setEmergencyName(d.emergencyContactName || '');
                     setEmergencyPhone(d.emergencyContactPhone || '');
                     setAvatarColor(d.avatarColor || AVATAR_COLORS[0]);
-                    setCostumeSize(d.costumeSize || null);
+                    setKurtaSize(d.kurtaSize || null);
+                    setJacketSize(d.jacketSize || null);
                     setCompany(d.company || '');
                 }
             } catch (err) {
@@ -145,7 +147,8 @@ export default function EditProfileScreen({ navigation }) {
                     emergencyContactName: emergencyName.trim(),
                     emergencyContactPhone: emergencyPhone.trim(),
                     avatarColor,
-                    costumeSize: costumeSize || null,
+                    kurtaSize: kurtaSize || null,
+                    jacketSize: jacketSize || null,
                     company: company.trim(),
                 },
                 { merge: true }
@@ -158,7 +161,7 @@ export default function EditProfileScreen({ navigation }) {
         } finally {
             setSaving(false);
         }
-    }, [fullname, emergencyPhone, joinedYear, instrument, emergencyName, avatarColor, costumeSize, company, navigation]);
+    }, [fullname, emergencyPhone, joinedYear, instrument, emergencyName, avatarColor, kurtaSize, jacketSize, company, navigation]);
 
     // Always-visible Save in the header so there's no scroll-to-bottom hunt.
     useLayoutEffect(() => {
@@ -299,23 +302,40 @@ export default function EditProfileScreen({ navigation }) {
 
                         <View style={styles.card}>
                             <Text style={styles.sectionTitle}>Costume Size</Text>
+
+                            <Text style={styles.label}>Kurta Set Size</Text>
                             <View style={styles.chipRow}>
                                 {COSTUME_SIZES.map((size) => {
-                                    const selected = costumeSize === size;
+                                    const selected = kurtaSize === size;
                                     return (
                                         <Pressable
                                             key={size}
-                                            onPress={() => setCostumeSize(selected ? null : size)}
+                                            onPress={() => setKurtaSize(selected ? null : size)}
                                             style={[styles.chip, selected && styles.chipSelected]}
                                         >
-                                            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>
-                                                {size}
-                                            </Text>
+                                            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{size}</Text>
                                         </Pressable>
                                     );
                                 })}
                             </View>
-                            <Text style={styles.helper}>Numeric (chest) size — 32=XXS · 38=M · 48=4XL. Pickup is marked by the costume team.</Text>
+
+                            <Text style={styles.label}>Jacket Size</Text>
+                            <View style={styles.chipRow}>
+                                {COSTUME_SIZES.map((size) => {
+                                    const selected = jacketSize === size;
+                                    return (
+                                        <Pressable
+                                            key={size}
+                                            onPress={() => setJacketSize(selected ? null : size)}
+                                            style={[styles.chip, selected && styles.chipSelected]}
+                                        >
+                                            <Text style={[styles.chipText, selected && styles.chipTextSelected]}>{size}</Text>
+                                        </Pressable>
+                                    );
+                                })}
+                            </View>
+
+                            <Text style={styles.helper}>Numeric (chest) size — 32=XXS · 38=M · 48=4XL. Handout is marked by the costume team.</Text>
                         </View>
 
                         <View style={styles.card}>

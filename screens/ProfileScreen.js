@@ -460,11 +460,12 @@ export default function ProfileScreen({ navigation }) {
                     </View>
 
                     <View style={styles.card}>
-                        <Text style={styles.cardLabel}>Costume Size</Text>
                         <View style={styles.cardRow}>
-                            <Text style={styles.cardValue}>{user.costumeSize || 'Not set'}</Text>
+                            <Text style={styles.cardLabel}>Costume Size</Text>
                             <Icon name="shirt-outline" size={20} color={colors.primary} />
                         </View>
+                        <Text style={styles.cardValue}>Kurta Set: {user.kurtaSize || 'Not set'}</Text>
+                        <Text style={styles.cardValue}>Jacket: {user.jacketSize || 'Not set'}</Text>
                     </View>
 
                     <View style={styles.card}>
