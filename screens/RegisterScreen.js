@@ -21,9 +21,11 @@ import { auth, db } from '../firebase';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from '../components/ui/Gradient';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colors, spacing, radius, fonts, shadows } from '../theme';
 
 export default function RegisterScreen({ navigation }) {
+  const insets = useSafeAreaInsets();
   const [fullname, setFullname] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -188,10 +190,11 @@ export default function RegisterScreen({ navigation }) {
 
           {showStatus && (
             <Animatable.View
-              animation="slideInUp"
+              animation="slideInDown"
               duration={400}
               style={[
                 styles.statusBanner,
+                { top: insets.top + 12 },
                 statusMessage.type === 'error' ? styles.error : styles.success,
               ]}
             >
@@ -314,7 +317,6 @@ const styles = StyleSheet.create({
   },
   statusBanner: {
     position: 'absolute',
-    bottom: 30,
     left: spacing.xl,
     right: spacing.xl,
     padding: spacing.lg,

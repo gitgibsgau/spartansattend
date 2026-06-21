@@ -18,6 +18,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getInitials } from '../components/ui/Avatar';
 import { colors, spacing, radius, fonts, shadows } from '../theme';
 
@@ -54,6 +55,7 @@ const AVATAR_COLORS = [
 
 export default function EditProfileScreen({ navigation }) {
     const headerHeight = useHeaderHeight();
+    const insets = useSafeAreaInsets();
 
     const [loading, setLoading] = useState(true);
     const [saving, setSaving] = useState(false);
@@ -379,10 +381,11 @@ export default function EditProfileScreen({ navigation }) {
 
             {status.show && (
                 <Animatable.View
-                    animation="slideInUp"
+                    animation="slideInDown"
                     duration={300}
                     style={[
                         styles.statusBanner,
+                        { top: insets.top + 12 },
                         status.type === 'error' ? styles.error : styles.success,
                     ]}
                 >
@@ -552,7 +555,6 @@ const styles = StyleSheet.create({
     },
     statusBanner: {
         position: 'absolute',
-        bottom: 30,
         left: spacing.xl,
         right: spacing.xl,
         padding: spacing.lg,
