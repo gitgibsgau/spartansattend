@@ -1,6 +1,11 @@
 # Node modules
 node_modules/
 
+# Local one-off admin scripts + their output (not part of the app bundle;
+# never imported by the app, kept out of git — output CSVs contain member PII)
+/scripts/
+active-participants-*.csv
+
 # macOS system files
 .DS_Store
 
