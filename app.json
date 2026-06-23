@@ -2,7 +2,7 @@
   "expo": {
     "name": "SpartansAttend",
     "slug": "spartans-attend",
-    "version": "3.0.0",
+    "version": "3.0.1",
     "newArchEnabled": true,
     "orientation": "default",
     "icon": "./assets/icon.png",
