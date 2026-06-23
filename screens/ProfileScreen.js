@@ -310,6 +310,17 @@ export default function ProfileScreen({ navigation }) {
                         <Avatar name={user.fullname} color={user.avatarColor} emoji={user.avatarEmoji} size={96} />
                         <Text style={styles.name}>{user.fullname}</Text>
                         <Text style={styles.text}>{user.email}</Text>
+                        {user.group != null && (
+                            <View style={styles.groupPill}>
+                                <Icon name="people" size={14} color={colors.primaryDark} />
+                                <Text style={styles.groupPillText}>
+                                    Group {user.group}
+                                    {user.groupRole === 'lead'
+                                        ? ' · Lead'
+                                        : (user.groupLead ? ` · Lead: ${user.groupLead}` : '')}
+                                </Text>
+                            </View>
+                        )}
                     </View>
 
                     <View style={styles.card}>
@@ -704,6 +715,21 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins_400Regular',
         color: '#64748b',
         marginTop: 2,
+    },
+    groupPill: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 10,
+        paddingVertical: 5,
+        paddingHorizontal: 12,
+        borderRadius: 999,
+        backgroundColor: colors.primarySoft,
+    },
+    groupPillText: {
+        fontSize: 13,
+        fontFamily: 'Poppins_600SemiBold',
+        color: colors.primaryDark,
     },
     card: {
         width: '100%',
