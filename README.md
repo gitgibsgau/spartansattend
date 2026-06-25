@@ -58,21 +58,25 @@ FIREBASE_APP_ID=...
 
 ## Dev backend (Firebase) & seed data
 
-For local development, point `.env` at a **dev/staging Firebase project** — never
-prod.
+For local development, point `.env` at the **shared dev Firebase project** (never
+prod). Ask the owner for its 6 config values, put them in `.env` — that's it.
+The shared project is already seeded, so you can skip straight to running the app.
 
-**Using the shared dev project:** ask the owner for its 6 config values, put them
-in `.env`, done.
+<details>
+<summary>Optional: spin up your own isolated dev project instead</summary>
 
-**Creating your own dev project (full isolation):**
 1. [Firebase Console](https://console.firebase.google.com) → **Add project**.
 2. **Authentication → Email/Password → Enable.**
 3. **Firestore Database → Create database** (Database ID `(default)`, any region).
 4. Project settings → **Your apps → Web (`</>`)** → copy the config into `.env`.
+5. Seed it (below) and deploy `firestore.rules`.
+</details>
 
 ### Seed sample data
 
-A fresh project is empty (no season, sessions, or accounts), so seed it:
+> Only needed for your **own** dev project — the shared project is already
+> seeded by the owner. A fresh project is empty (no season, sessions, or
+> accounts), so seed it:
 
 ```bash
 # 1. Dev project → Firestore → Rules → temporarily open, then Publish:
