@@ -6,6 +6,8 @@
  * and run it while Firestore rules are OPEN (test mode):
  *   1. Dev Firebase → Firestore → Rules → temporarily set:  allow read, write: if true;
  *   2. node scripts/seed-dev.js
+ *      (keep prod in .env? put dev config in .env.dev and run:
+ *       ENV_FILE=.env.dev node scripts/seed-dev.js)
  *   3. Then paste the real firestore.rules and Publish.
  * (The strict rules intentionally block seeding admin/sessions/config docs.)
  *
@@ -20,7 +22,8 @@ const { getFirestore, doc, setDoc, collection, Timestamp } = require('firebase/f
 
 function loadEnv() {
   const out = {};
-  const p = path.join(__dirname, '..', '.env');
+  const file = process.env.ENV_FILE || '.env';
+  const p = path.isAbsolute(file) ? file : path.join(__dirname, '..', file);
   if (fs.existsSync(p)) for (const line of fs.readFileSync(p, 'utf8').split('\n')) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*?)\s*$/);
     if (m) out[m[1]] = m[2].replace(/^['"]|['"]$/g, '');
