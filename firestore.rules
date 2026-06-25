@@ -1,0 +1,96 @@
+rules_version = '2';
+
+// SpartansAttend Firestore security rules.
+// Security model: the app's Firebase config is public (it ships in the app
+// binary), so these rules are the real boundary. Default-deny; every collection
+// the app uses is listed explicitly. Privilege fields (role, adminScopes,
+// group*) can only be set by an admin (or in the Firebase console, which
+// bypasses rules) — never by the account itself.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Helpers ----
+    function isSignedIn() { return request.auth != null; }
+    function isSelf(uid) { return isSignedIn() && request.auth.uid == uid; }
+    // The requesting user's own /users doc (used for role/scope checks). Only
+    // call after isSignedIn() so it short-circuits when logged out.
+    function reqUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
+    function isAdmin() { return isSignedIn() && reqUser().role == 'admin'; }
+    function hasScope(s) { return isSignedIn() && (s in reqUser().get('adminScopes', [])); }
+    function changed(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasAny(keys); }
+    function onlyChanged(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
+
+    // ---- Users ----
+    match /users/{uid} {
+      // Own doc always; admins + roster-scoped admins read others.
+      allow read: if isSelf(uid) || isAdmin() || hasScope('costume') || hasScope('donation');
+
+      // Self-registration: a plain student only; cannot self-grant power.
+      allow create: if isSelf(uid)
+        && request.resource.data.role == 'student'
+        && !request.resource.data.keys().hasAny(['adminScopes', 'group', 'groupRole', 'groupLead']);
+
+      // Admin: anything. Self: profile fields only — never role/scope/group/email.
+      // Costume admin: only the handout flags, on anyone's doc.
+      allow update: if isAdmin()
+        || (isSelf(uid) && !changed(['role', 'adminScopes', 'group', 'groupRole', 'groupLead', 'groupBaseName', 'email']))
+        || (hasScope('costume') && onlyChanged(['kurtaReceived', 'jacketReceived', 'costumeReceived']));
+
+      allow delete: if isAdmin();
+    }
+
+    // ---- Sessions (admin-managed; everyone signed in reads to mark/see) ----
+    match /sessions/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---- Attendance (own records + admin) ----
+    match /attendance/{id} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow create: if isAdmin() || (isSignedIn() && request.resource.data.studentId == request.auth.uid);
+      allow update, delete: if isAdmin();
+    }
+
+    // ---- Attendance correction requests (student creates own; admin reviews) ----
+    match /attendanceCorrectionRequests/{id} {
+      allow read: if isAdmin() || (isSignedIn() && resource.data.studentId == request.auth.uid);
+      allow create: if isSignedIn() && request.resource.data.studentId == request.auth.uid;
+      allow update, delete: if isAdmin();
+    }
+
+    // ---- Parikshan scores (doc id = "<uid>_<season>"): own + admin read, admin write ----
+    match /parikshanScores/{id} {
+      allow read: if isAdmin() || (isSignedIn() && id.split('_')[0] == request.auth.uid);
+      allow write: if isAdmin();
+    }
+    match /finalParikshanScores/{id} {
+      allow read: if isAdmin() || (isSignedIn() && id.split('_')[0] == request.auth.uid);
+      allow write: if isAdmin();
+    }
+
+    // ---- Events + RSVPs ----
+    match /events/{eventId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+      match /rsvps/{uid} {
+        allow read: if isSignedIn();
+        allow write: if isSelf(uid) || isAdmin();
+      }
+    }
+
+    // ---- Season / config (everyone reads; admin writes) ----
+    match /globalConfig/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // ---- Announcements (everyone reads; admin writes) ----
+    match /notifications/{id} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // No catch-all: anything not matched above is denied.
+  }
+}
