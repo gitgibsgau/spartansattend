@@ -49,7 +49,57 @@ FIREBASE_MESSAGING_SENDER_ID=...
 FIREBASE_APP_ID=...
 ```
 
-> `.env` is gitignored and never committed. Ask the owner for the values.
+> `.env` is gitignored and never committed.
+
+> **Use the DEV Firebase project, not production.** Point `.env` at a dev/staging
+> project so your local testing never touches live member data (see below).
+
+---
+
+## Dev backend (Firebase) & seed data
+
+For local development, point `.env` at a **dev/staging Firebase project** — never
+prod.
+
+**Using the shared dev project:** ask the owner for its 6 config values, put them
+in `.env`, done.
+
+**Creating your own dev project (full isolation):**
+1. [Firebase Console](https://console.firebase.google.com) → **Add project**.
+2. **Authentication → Email/Password → Enable.**
+3. **Firestore Database → Create database** (Database ID `(default)`, any region).
+4. Project settings → **Your apps → Web (`</>`)** → copy the config into `.env`.
+
+### Seed sample data
+
+A fresh project is empty (no season, sessions, or accounts), so seed it:
+
+```bash
+# 1. Dev project → Firestore → Rules → temporarily open, then Publish:
+#       allow read, write: if true;
+# 2. With .env pointing at your dev project:
+node scripts/seed-dev.js
+# 3. Paste the real firestore.rules back into the dev project and Publish.
+```
+
+This creates login-ready accounts (password **`devpass123`**):
+
+| Email | Role |
+|---|---|
+| `admin@dev.test` | admin |
+| `student@dev.test` | student — has a group, costume sizes, attendance |
+| `costume@dev.test` | costume-roster admin |
+| `donation@dev.test` | donation-roster admin |
+
+…plus roster-only students, a season config, sessions, and sample attendance.
+
+> `seed-dev.js` refuses to run against the production project — never run it on prod.
+
+### Security rules
+
+The Firestore rules are in [`firestore.rules`](firestore.rules). Deploy them to
+your dev project (Firebase Console → Firestore → Rules → paste → Publish) so you
+test against the real access model. **Production rules are deployed by the owner.**
 
 ---
 
