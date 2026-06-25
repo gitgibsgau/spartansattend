@@ -1,10 +1,13 @@
 # Node modules
 node_modules/
 
-# Local one-off admin scripts + their output (not part of the app bundle;
-# never imported by the app, kept out of git — output CSVs contain member PII)
-/scripts/
-active-participants-*.csv
+# Owner-only local scripts (touch prod / member PII) + CSV data & output —
+# kept out of git. seed-dev.js is intentionally NOT ignored (safe dev tooling).
+/scripts/active-participants.js
+/scripts/apply-groups.js
+/scripts/group-spartans.js
+/scripts/groups/
+/scripts/*.csv
 
 # macOS system files
 .DS_Store
