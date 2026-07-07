@@ -78,6 +78,19 @@ const fmtDeadline = (ms) =>
 // RSVP is open until the (optional) per-event deadline passes.
 const rsvpOpen = (ev) => !ev.rsvpDeadlineMs || Date.now() <= ev.rsvpDeadlineMs;
 
+// Roles an event can need filled, in display order. Media is filled manually by
+// an admin (not auto-allocated); the rest are auto-allocated by role eligibility.
+const ALLOC_ROLES = [
+  { key: 'dhol', label: 'Dhol' },
+  { key: 'dhwaj', label: 'Dhwaj' },
+  { key: 'toll', label: 'Toll' },
+  { key: 'tasha', label: 'Tasha' },
+  { key: 'zanj', label: 'Zanj' },
+  { key: 'media', label: 'Media' },
+  { key: 'eventManagement', label: 'Event Mgmt' },
+];
+const roleDemandTotal = (rd) => (rd ? ALLOC_ROLES.reduce((n, r) => n + (Number(rd[r.key]) || 0), 0) : 0);
+
 export default function EventsScreen() {
   const { currentSeason } = useSeason();
   const insets = useSafeAreaInsets();
@@ -313,6 +326,7 @@ export default function EventsScreen() {
 
   const openEligibilityEditor = (ev) => {
     setDlEditFor(null);
+    setRdEditFor(null);
     setElEditFor(ev.id);
     setElOn(!!ev.requiresEligibility);
     setElPct(String(ev.eligibilityThreshold || 80));
@@ -335,8 +349,42 @@ export default function EventsScreen() {
     }
   };
 
+  // ---- Set an event's per-role demand (admin) — input for the allocator ----
+  const [rdEditFor, setRdEditFor] = useState(null);
+  const [rd, setRd] = useState({});
+
+  const openRoleDemandEditor = (ev) => {
+    setDlEditFor(null);
+    setElEditFor(null);
+    setRdEditFor(ev.id);
+    const seed = {};
+    ALLOC_ROLES.forEach((r) => {
+      const v = ev.roleDemand ? ev.roleDemand[r.key] : null;
+      seed[r.key] = v != null ? String(v) : '';
+    });
+    setRd(seed);
+  };
+
+  const saveRoleDemand = async (ev) => {
+    const demand = {};
+    ALLOC_ROLES.forEach((r) => { demand[r.key] = Number(rd[r.key]) || 0; });
+    const apply = (e) => (e && e.id === ev.id ? { ...e, roleDemand: demand } : e);
+    setEvents((prev) => prev.map(apply));
+    setSelectedEvent((prev) => apply(prev));
+    setRdEditFor(null);
+    try {
+      await updateDoc(doc(db, 'events', ev.id), { roleDemand: demand });
+      showBanner('success', 'Role demand saved.');
+    } catch (err) {
+      console.error('Save role demand failed:', err);
+      showBanner('error', 'Could not save role demand.');
+      load();
+    }
+  };
+
   const openDeadlineEditor = (ev) => {
     setElEditFor(null);
+    setRdEditFor(null);
     setDlEditFor(ev.id);
     if (ev.rsvpDeadlineMs) {
       const d = new Date(ev.rsvpDeadlineMs);
@@ -709,6 +757,52 @@ export default function EventsScreen() {
                   </View>
                 )}
 
+                {/* Role demand — how many of each role this event needs (allocator input) */}
+                {!isPast && (
+                <View style={styles.adminDetailRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.adminDetailLabel}>ROLE DEMAND</Text>
+                    <Text style={styles.adminDetailValue}>
+                      {roleDemandTotal(ev.roleDemand) > 0 ? `${roleDemandTotal(ev.roleDemand)} spots set` : 'Not set'}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => (rdEditFor === ev.id ? setRdEditFor(null) : openRoleDemandEditor(ev))}
+                    style={[styles.smallBtn, styles.smallBtnPrimary]}
+                  >
+                    <Text style={[styles.smallBtnText, { color: colors.primaryDark }]}>
+                      {rdEditFor === ev.id ? 'Cancel' : roleDemandTotal(ev.roleDemand) > 0 ? 'Edit' : 'Set'}
+                    </Text>
+                  </Pressable>
+                </View>
+                )}
+
+                {!isPast && rdEditFor === ev.id && (
+                  <View style={styles.elEditor}>
+                    {ALLOC_ROLES.map((r) => (
+                      <View key={r.key} style={styles.rdRow}>
+                        <Text style={styles.rdLabel}>{r.label}{r.key === 'media' ? ' (manual)' : ''}</Text>
+                        <TextInput
+                          value={rd[r.key]}
+                          onChangeText={(t) => setRd((prev) => ({ ...prev, [r.key]: t.replace(/[^0-9]/g, '').slice(0, 3) }))}
+                          placeholder="0"
+                          placeholderTextColor={colors.textMuted}
+                          style={styles.rdInput}
+                          keyboardType="number-pad"
+                          maxLength={3}
+                        />
+                      </View>
+                    ))}
+                    <Text style={styles.rdHint}>Media is assigned manually; the rest feed the auto-allocator.</Text>
+                    <GradientButton
+                      title="Save role demand"
+                      onPress={() => saveRoleDemand(ev)}
+                      icon={<Icon name="people-outline" size={16} color={colors.textOnPrimary} />}
+                      style={{ marginTop: spacing.md }}
+                    />
+                  </View>
+                )}
+
                 {!isPast && dlEditFor === ev.id ? (
                   <View>
                     <Calendar
@@ -741,7 +835,7 @@ export default function EventsScreen() {
                       style={{ marginTop: spacing.md }}
                     />
                   </View>
-                ) : (
+                ) : elEditFor === ev.id || rdEditFor === ev.id ? null : (
                   <>
                     {attendeesLoading ? (
                       <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
@@ -1180,6 +1274,32 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surfaceMuted,
     borderRadius: radius.lg,
     padding: spacing.lg,
+    marginTop: spacing.sm,
+  },
+  rdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  rdLabel: { fontSize: 14, fontFamily: fonts.medium, color: colors.textSecondary },
+  rdInput: {
+    minWidth: 56,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: 8,
+    paddingHorizontal: spacing.md,
+    fontSize: 16,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  rdHint: {
+    fontSize: 11.5,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
     marginTop: spacing.sm,
   },
   detailMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.sm },
