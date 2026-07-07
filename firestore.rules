@@ -70,8 +70,11 @@ service cloud.firestore {
     }
 
     // ---- Events + RSVPs ----
+    // Students see only PUBLISHED events; admins see everything (drafts synced
+    // from the gsynch API stay hidden until an admin publishes them). A student
+    // list query must therefore filter where('published','==',true).
     match /events/{eventId} {
-      allow read: if isSignedIn();
+      allow read: if isAdmin() || resource.data.published == true;
       allow write: if isAdmin();
       match /rsvps/{uid} {
         allow read: if isSignedIn();

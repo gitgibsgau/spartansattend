@@ -29,6 +29,9 @@ import {
   getDocs,
   getDoc,
   addDoc,
+  updateDoc,
+  deleteDoc,
+  writeBatch,
   doc,
   runTransaction,
   serverTimestamp,
@@ -36,6 +39,7 @@ import {
   Timestamp,
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
+import { syncEventReminders } from '../utils/eventReminders';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
@@ -54,6 +58,25 @@ const dateParts = (ms) => {
     time: d.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' }),
   };
 };
+
+// Whole-calendar-days from today to the event date, and an intuitive label.
+const countdown = (ms, hasDate) => {
+  if (!hasDate) return null;
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const ev = new Date(ms); ev.setHours(0, 0, 0, 0);
+  const d = Math.round((ev.getTime() - today.getTime()) / 86400000);
+  if (d < 0) return { text: 'Ended', tone: 'muted' };
+  if (d === 0) return { text: 'Today', tone: 'urgent' };
+  if (d === 1) return { text: 'Tomorrow', tone: 'urgent' };
+  if (d <= 7) return { text: `In ${d} days`, tone: 'soon' };
+  return { text: `In ${d} days`, tone: 'normal' };
+};
+
+const fmtDeadline = (ms) =>
+  new Date(ms).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+
+// RSVP is open until the (optional) per-event deadline passes.
+const rsvpOpen = (ev) => !ev.rsvpDeadlineMs || Date.now() <= ev.rsvpDeadlineMs;
 
 export default function EventsScreen() {
   const { currentSeason } = useSeason();
@@ -82,6 +105,7 @@ export default function EventsScreen() {
   const [fDate, setFDate] = useState(''); // 'YYYY-MM-DD'
   const [fTime, setFTime] = useState('18:00'); // 'HH:MM' 24h
   const [fRequiresEligibility, setFRequiresEligibility] = useState(true);
+  const [fThreshold, setFThreshold] = useState('80');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const load = useCallback(async () => {
@@ -95,14 +119,17 @@ export default function EventsScreen() {
         fetchAttendanceEligibility(uid, currentSeason),
       ]);
       const userData = userSnap.exists() ? userSnap.data() : {};
+      const isAdmin = userData.role === 'admin';
       setRole(userData.role || 'student');
       setFullname(userData.fullname || 'Student');
       setEligibility(elig);
 
-      // Events for this season (sorted client-side to avoid a composite index).
-      const evSnap = await getDocs(
-        query(collection(db, 'events'), where('season', '==', currentSeason))
-      );
+      // Admins see every event for the season (drafts + published). Students
+      // read only published events — a single-equality filter (no composite
+      // index; rule-enforced), with the season narrowed client-side.
+      const evSnap = isAdmin
+        ? await getDocs(query(collection(db, 'events'), where('season', '==', currentSeason)))
+        : await getDocs(query(collection(db, 'events'), where('published', '==', true)));
 
       // Each student's own RSVP doc (1 read per event).
       const rows = await Promise.all(
@@ -116,14 +143,20 @@ export default function EventsScreen() {
           return {
             id: d.id,
             ...data,
-            startsMs: data.startsAt?.toMillis ? data.startsAt.toMillis() : 0,
+            // No date (TBD/declined) sorts to the bottom of the list.
+            startsMs: data.startsAt?.toMillis ? data.startsAt.toMillis() : Number.MAX_SAFE_INTEGER,
+            hasDate: !!(data.eventDate || data.startsAt),
+            rsvpDeadlineMs: data.rsvpDeadline?.toMillis ? data.rsvpDeadline.toMillis() : null,
             goingCount: data.goingCount || 0,
             myStatus,
           };
         })
       );
       rows.sort((a, b) => a.startsMs - b.startsMs);
-      setEvents(rows);
+      const seasonRows = rows.filter((r) => r.season === currentSeason);
+      setEvents(seasonRows);
+      // Reschedule this device's local reminders from the current list.
+      syncEventReminders(seasonRows);
     } catch (err) {
       console.error('Failed to load events:', err);
       showBanner('error', 'Could not load events.');
@@ -167,8 +200,14 @@ export default function EventsScreen() {
   const handleRsvp = (event, newStatus) => {
     if (event.myStatus) return; // already locked
 
-    if (event.requiresEligibility && newStatus === 'going' && !eligibility?.isEligible) {
-      showBanner('error', 'Reach 80% attendance to RSVP for this event.');
+    if (!rsvpOpen(event)) {
+      showBanner('error', 'RSVP has closed for this event.');
+      return;
+    }
+
+    const threshold = event.eligibilityThreshold || 80;
+    if (event.requiresEligibility && newStatus === 'going' && (!eligibility || eligibility.pct < threshold)) {
+      showBanner('error', `Reach ${threshold}% attendance to RSVP for this event.`);
       return;
     }
 
@@ -211,10 +250,135 @@ export default function EventsScreen() {
     }
   };
 
+  // ---- Publish toggle (admin) — gates student visibility ----
+  const handleTogglePublish = async (event) => {
+    const next = !event.published;
+    const flip = (e) => (e && e.id === event.id ? { ...e, published: next } : e);
+    setEvents((prev) => prev.map(flip));
+    setSelectedEvent((prev) => flip(prev));
+    try {
+      await updateDoc(doc(db, 'events', event.id), { published: next });
+      showBanner('success', next ? 'Event published. Students can see it.' : 'Event hidden from students.');
+    } catch (err) {
+      console.error('Publish toggle failed:', err);
+      showBanner('error', 'Could not update publish state.');
+      const revert = (e) => (e && e.id === event.id ? { ...e, published: !next } : e);
+      setEvents((prev) => prev.map(revert));
+      setSelectedEvent((prev) => revert(prev));
+    }
+  };
+
+  // ---- Delete event (admin) — cascades the RSVP subcollection ----
+  const handleDelete = (event) => {
+    Alert.alert(
+      'Delete event',
+      `Delete "${event.title}"? This removes the event and all its RSVPs. This can't be undone.`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              // Remove RSVP docs first (Firestore doesn't cascade), then the event.
+              const rsvpSnap = await getDocs(collection(db, 'events', event.id, 'rsvps'));
+              if (!rsvpSnap.empty) {
+                const batch = writeBatch(db);
+                rsvpSnap.docs.forEach((d) => batch.delete(d.ref));
+                await batch.commit();
+              }
+              await deleteDoc(doc(db, 'events', event.id));
+              setSelectedEvent((prev) => (prev && prev.id === event.id ? null : prev));
+              setEvents((prev) => prev.filter((e) => e.id !== event.id));
+              showBanner('success', 'Event deleted.');
+            } catch (err) {
+              console.error('Delete event failed:', err);
+              showBanner('error', 'Could not delete the event.');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  // ---- Set / clear an event's RSVP deadline (admin) ----
+  const [dlEditFor, setDlEditFor] = useState(null); // event id being edited
+  const [dlDate, setDlDate] = useState('');
+  const [dlTime, setDlTime] = useState('18:00');
+
+  // ---- Set an event's eligibility gate (admin) ----
+  const [elEditFor, setElEditFor] = useState(null);
+  const [elOn, setElOn] = useState(false);
+  const [elPct, setElPct] = useState('80');
+
+  const openEligibilityEditor = (ev) => {
+    setDlEditFor(null);
+    setElEditFor(ev.id);
+    setElOn(!!ev.requiresEligibility);
+    setElPct(String(ev.eligibilityThreshold || 80));
+  };
+
+  const saveEligibility = async (ev) => {
+    const pct = elOn ? Number(elPct) || 80 : null;
+    if (elOn && (pct < 1 || pct > 100)) return showBanner('error', 'Threshold must be between 1 and 100%.');
+    const apply = (e) => (e && e.id === ev.id ? { ...e, requiresEligibility: elOn, eligibilityThreshold: pct } : e);
+    setEvents((prev) => prev.map(apply));
+    setSelectedEvent((prev) => apply(prev));
+    setElEditFor(null);
+    try {
+      await updateDoc(doc(db, 'events', ev.id), { requiresEligibility: elOn, eligibilityThreshold: pct });
+      showBanner('success', 'Eligibility rule updated.');
+    } catch (err) {
+      console.error('Save eligibility failed:', err);
+      showBanner('error', 'Could not update eligibility.');
+      load();
+    }
+  };
+
+  const openDeadlineEditor = (ev) => {
+    setElEditFor(null);
+    setDlEditFor(ev.id);
+    if (ev.rsvpDeadlineMs) {
+      const d = new Date(ev.rsvpDeadlineMs);
+      setDlDate(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`);
+      setDlTime(`${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`);
+    } else {
+      setDlDate(''); setDlTime('18:00');
+    }
+  };
+
+  const saveDeadline = async (ev, clear = false) => {
+    let value = null;
+    if (!clear) {
+      if (!dlDate) return showBanner('error', 'Pick a deadline date.');
+      if (!/^([01]\d|2[0-3]):[0-5]\d$/.test(dlTime)) return showBanner('error', 'Time must be HH:MM (24h).');
+      const dt = new Date(`${dlDate}T${dlTime}:00`);
+      if (Number.isNaN(dt.getTime())) return showBanner('error', 'Invalid deadline.');
+      if (dt.getTime() <= Date.now()) return showBanner('error', 'Deadline must be in the future.');
+      if (ev.startsMs && ev.startsMs !== Number.MAX_SAFE_INTEGER && dt.getTime() > ev.startsMs + 86400000) {
+        return showBanner('error', 'Deadline must be on or before the event date.');
+      }
+      value = Timestamp.fromDate(dt);
+    }
+    const ms = value ? value.toMillis() : null;
+    const apply = (e) => (e && e.id === ev.id ? { ...e, rsvpDeadlineMs: ms } : e);
+    setEvents((prev) => prev.map(apply));
+    setSelectedEvent((prev) => apply(prev));
+    setDlEditFor(null);
+    try {
+      await updateDoc(doc(db, 'events', ev.id), { rsvpDeadline: value });
+      showBanner('success', clear ? 'RSVP deadline cleared.' : 'RSVP deadline set.');
+    } catch (err) {
+      console.error('Set deadline failed:', err);
+      showBanner('error', 'Could not update the deadline.');
+      load();
+    }
+  };
+
   // ---- Create event (admin) ----
   const resetForm = () => {
     setFTitle(''); setFDesc(''); setFVenue(''); setFDate(''); setFTime('18:00');
-    setFRequiresEligibility(true); setShowDatePicker(false);
+    setFRequiresEligibility(true); setFThreshold('80'); setShowDatePicker(false);
   };
 
   const handleCreate = async () => {
@@ -232,8 +396,12 @@ export default function EventsScreen() {
         description: fDesc.trim(),
         venue: fVenue.trim(),
         startsAt: Timestamp.fromDate(startsAt),
+        eventDate: fDate,
+        startTime: startsAt.toLocaleString(undefined, { hour: 'numeric', minute: '2-digit' }),
         requiresEligibility: fRequiresEligibility,
+        eligibilityThreshold: fRequiresEligibility ? (Number(fThreshold) || 80) : null,
         season: currentSeason,
+        published: true, // manually-created events go live immediately (as before)
         goingCount: 0,
         createdBy: auth.currentUser.uid,
         createdByName: fullname,
@@ -257,8 +425,10 @@ export default function EventsScreen() {
   const renderEvent = ({ item, index }) => {
     const isPast = item.startsMs < now;
     const gated = item.requiresEligibility;
-    const canGo = !gated || eligibility?.isEligible;
-    const dp = dateParts(item.startsMs);
+    const threshold = item.eligibilityThreshold || 80;
+    const canGo = !gated || (eligibility && eligibility.pct >= threshold);
+    const dp = item.hasDate ? dateParts(item.startsMs) : null;
+    const cd = countdown(item.startsMs, item.hasDate);
 
     return (
       <Animatable.View animation="fadeInUp" duration={400} delay={Math.min(index * 60, 300)}>
@@ -273,16 +443,30 @@ export default function EventsScreen() {
               end={{ x: 1, y: 1 }}
               style={styles.dateBadge}
             >
-              <Text style={[styles.dateMonth, isPast && styles.datePastText]}>{dp.month}</Text>
-              <Text style={[styles.dateDay, isPast && styles.datePastText]}>{dp.day}</Text>
+              {dp ? (
+                <>
+                  <Text style={[styles.dateMonth, isPast && styles.datePastText]}>{dp.month}</Text>
+                  <Text style={[styles.dateDay, isPast && styles.datePastText]}>{dp.day}</Text>
+                </>
+              ) : (
+                <Text style={[styles.dateMonth, isPast && styles.datePastText]}>TBD</Text>
+              )}
             </LinearGradient>
 
             <View style={styles.headerMain}>
               <Text style={styles.eventTitle} numberOfLines={2}>{item.title}</Text>
               <View style={styles.metaRow}>
                 <Icon name="time-outline" size={14} color={colors.textMuted} />
-                <Text style={styles.metaText}>{dp.weekday} · {dp.time}</Text>
+                <Text style={styles.metaText}>
+                  {dp ? `${dp.weekday} · ` : ''}{item.startTime || 'Time TBD'}
+                </Text>
               </View>
+              {!!item.reportingTime && (
+                <View style={styles.metaRow}>
+                  <Icon name="stopwatch-outline" size={14} color={colors.textMuted} />
+                  <Text style={styles.metaText}>Report by {item.reportingTime}</Text>
+                </View>
+              )}
               {!!item.venue && (
                 <View style={styles.metaRow}>
                   <Icon name="location-outline" size={14} color={colors.textMuted} />
@@ -291,7 +475,14 @@ export default function EventsScreen() {
               )}
             </View>
 
-            <Icon name="chevron-forward" size={20} color={colors.textMuted} />
+            <View style={styles.cardTopRight}>
+              {cd && (
+                <View style={[styles.cdPill, styles[`cd_${cd.tone}`]]}>
+                  <Text style={[styles.cdText, styles[`cdText_${cd.tone}`]]}>{cd.text}</Text>
+                </View>
+              )}
+              <Icon name="chevron-forward" size={20} color={colors.textMuted} />
+            </View>
           </View>
 
           <View style={styles.divider} />
@@ -303,7 +494,25 @@ export default function EventsScreen() {
             </View>
 
             {role === 'admin' ? (
-              <Text style={styles.tapHint}>View details →</Text>
+              <View style={styles.adminActions}>
+                <Pressable
+                  onPress={() => handleTogglePublish(item)}
+                  hitSlop={8}
+                  style={[styles.publishBtn, item.published ? styles.publishOn : styles.publishOff]}
+                >
+                  <Icon
+                    name={item.published ? 'eye' : 'eye-off-outline'}
+                    size={14}
+                    color={item.published ? colors.successDark : colors.textMuted}
+                  />
+                  <Text style={[styles.publishText, { color: item.published ? colors.successDark : colors.textMuted }]}>
+                    {item.published ? 'Published' : 'Publish'}
+                  </Text>
+                </Pressable>
+                <Pressable onPress={() => handleDelete(item)} hitSlop={8} style={styles.deleteBtn}>
+                  <Icon name="trash-outline" size={16} color={colors.danger} />
+                </Pressable>
+              </View>
             ) : isPast ? (
               <Text style={styles.pastLabel}>Ended</Text>
             ) : item.myStatus ? (
@@ -327,8 +536,10 @@ export default function EventsScreen() {
                   {item.myStatus === 'going' ? "You're going" : "Can't make it"}
                 </Text>
               </View>
+            ) : !rsvpOpen(item) ? (
+              <Text style={styles.pastLabel}>RSVP closed</Text>
             ) : gated && !canGo ? (
-              <Text style={styles.gateHint}>Reach 80% to RSVP</Text>
+              <Text style={styles.gateHint}>Reach {threshold}% to RSVP</Text>
             ) : (
               <Text style={styles.tapHint}>Tap to RSVP →</Text>
             )}
@@ -344,8 +555,9 @@ export default function EventsScreen() {
     const ev = selectedEvent;
     const isPast = ev.startsMs < now;
     const gated = ev.requiresEligibility;
-    const canGo = !gated || eligibility?.isEligible;
-    const dp = dateParts(ev.startsMs);
+    const threshold = ev.eligibilityThreshold || 80;
+    const canGo = !gated || (eligibility && eligibility.pct >= threshold);
+    const dp = ev.hasDate ? dateParts(ev.startsMs) : null;
 
     return (
       <Modal visible transparent animationType="slide" onRequestClose={() => setSelectedEvent(null)}>
@@ -358,10 +570,34 @@ export default function EventsScreen() {
               </TouchableOpacity>
             </View>
 
+            {role === 'admin' && (
+              <Pressable
+                onPress={() => handleTogglePublish(ev)}
+                style={[styles.publishBtnLg, ev.published ? styles.publishOn : styles.publishOff]}
+              >
+                <Icon
+                  name={ev.published ? 'eye' : 'eye-off-outline'}
+                  size={16}
+                  color={ev.published ? colors.successDark : colors.textMuted}
+                />
+                <Text style={[styles.publishText, { color: ev.published ? colors.successDark : colors.textMuted }]}>
+                  {ev.published ? 'Published, visible to students' : 'Draft, tap to publish'}
+                </Text>
+              </Pressable>
+            )}
+
             <View style={styles.detailMeta}>
               <Icon name="calendar-outline" size={16} color={colors.primary} />
-              <Text style={styles.detailMetaText}>{dp.weekday}, {dp.month} {dp.day} · {dp.time}</Text>
+              <Text style={styles.detailMetaText}>
+                {dp ? `${dp.weekday}, ${dp.month} ${dp.day} · ` : ''}{ev.startTime || 'Time TBD'}
+              </Text>
             </View>
+            {!!ev.reportingTime && (
+              <View style={styles.detailMeta}>
+                <Icon name="stopwatch-outline" size={16} color={colors.primary} />
+                <Text style={styles.detailMetaText}>Report by {ev.reportingTime}</Text>
+              </View>
+            )}
             {!!ev.venue && (
               <View style={styles.detailMeta}>
                 <Icon name="location-outline" size={16} color={colors.primary} />
@@ -372,6 +608,14 @@ export default function EventsScreen() {
               <Icon name="people-outline" size={16} color={colors.primary} />
               <Text style={styles.detailMetaText}>{ev.goingCount} going</Text>
             </View>
+            {!!ev.rsvpDeadlineMs && (
+              <View style={styles.detailMeta}>
+                <Icon name="hourglass-outline" size={16} color={rsvpOpen(ev) ? colors.primary : colors.danger} />
+                <Text style={styles.detailMetaText}>
+                  {rsvpOpen(ev) ? `RSVP by ${fmtDeadline(ev.rsvpDeadlineMs)}` : `RSVP closed · ${fmtDeadline(ev.rsvpDeadlineMs)}`}
+                </Text>
+              </View>
+            )}
 
             {!!ev.description && (
               <Text style={styles.detailDesc}>{ev.description}</Text>
@@ -381,44 +625,168 @@ export default function EventsScreen() {
 
             {role === 'admin' ? (
               <View>
-                {attendeesLoading ? (
-                  <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
-                ) : (
-                  (() => {
-                    const going = (attendees || []).filter((a) => a.status === 'going');
-                    const declined = (attendees || []).filter((a) => a.status === 'declined');
-                    return (
-                      <ScrollView style={styles.attendeeScroll} showsVerticalScrollIndicator={false}>
-                        <Text style={[styles.attendeeHeader, { color: colors.successDark }]}>
-                          Going ({going.length})
-                        </Text>
-                        {going.length ? (
-                          going.map((a) => (
-                            <View key={a.id} style={styles.attendeeRow}>
-                              <Icon name="checkmark-circle" size={15} color={colors.success} />
-                              <Text style={styles.attendeeName}>{a.fullname || 'Unknown'}</Text>
-                            </View>
-                          ))
-                        ) : (
-                          <Text style={styles.attendeeEmpty}>No one yet.</Text>
-                        )}
+                {/* RSVP deadline control — not offered once the event has ended */}
+                {!isPast && (
+                <View style={styles.adminDetailRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.adminDetailLabel}>RSVP DEADLINE</Text>
+                    <Text style={styles.adminDetailValue}>
+                      {ev.rsvpDeadlineMs ? fmtDeadline(ev.rsvpDeadlineMs) : 'None set'}
+                    </Text>
+                  </View>
+                  {!!ev.rsvpDeadlineMs && dlEditFor !== ev.id && (
+                    <Pressable onPress={() => saveDeadline(ev, true)} style={styles.smallBtn}>
+                      <Text style={styles.smallBtnText}>Clear</Text>
+                    </Pressable>
+                  )}
+                  <Pressable
+                    onPress={() => (dlEditFor === ev.id ? setDlEditFor(null) : openDeadlineEditor(ev))}
+                    style={[styles.smallBtn, styles.smallBtnPrimary]}
+                  >
+                    <Text style={[styles.smallBtnText, { color: colors.primaryDark }]}>
+                      {dlEditFor === ev.id ? 'Cancel' : ev.rsvpDeadlineMs ? 'Edit' : 'Set'}
+                    </Text>
+                  </Pressable>
+                </View>
+                )}
 
-                        <Text style={[styles.attendeeHeader, { color: colors.danger, marginTop: spacing.lg }]}>
-                          Can't make it ({declined.length})
-                        </Text>
-                        {declined.length ? (
-                          declined.map((a) => (
-                            <View key={a.id} style={styles.attendeeRow}>
-                              <Icon name="close-circle" size={15} color={colors.danger} />
-                              <Text style={styles.attendeeName}>{a.fullname || 'Unknown'}</Text>
-                            </View>
-                          ))
-                        ) : (
-                          <Text style={styles.attendeeEmpty}>None.</Text>
-                        )}
-                      </ScrollView>
-                    );
-                  })()
+                {/* Eligibility gate control — upcoming events only */}
+                {!isPast && (
+                <View style={styles.adminDetailRow}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.adminDetailLabel}>ELIGIBILITY GATE</Text>
+                    <Text style={styles.adminDetailValue}>
+                      {ev.requiresEligibility ? `Requires ${ev.eligibilityThreshold || 80}% attendance` : 'Open to all'}
+                    </Text>
+                  </View>
+                  <Pressable
+                    onPress={() => (elEditFor === ev.id ? setElEditFor(null) : openEligibilityEditor(ev))}
+                    style={[styles.smallBtn, styles.smallBtnPrimary]}
+                  >
+                    <Text style={[styles.smallBtnText, { color: colors.primaryDark }]}>
+                      {elEditFor === ev.id ? 'Cancel' : 'Edit'}
+                    </Text>
+                  </Pressable>
+                </View>
+                )}
+
+                {!isPast && elEditFor === ev.id && (
+                  <View style={styles.elEditor}>
+                    <View style={styles.switchRow}>
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.switchLabel}>Require attendance eligibility</Text>
+                        <Text style={styles.switchHint}>Only students at/above the threshold can RSVP "Going".</Text>
+                      </View>
+                      <Switch
+                        value={elOn}
+                        onValueChange={setElOn}
+                        trackColor={{ true: colors.primary, false: colors.borderStrong }}
+                      />
+                    </View>
+                    {elOn && (
+                      <View style={styles.thresholdRow}>
+                        <Text style={styles.thresholdLabel}>Minimum attendance</Text>
+                        <View style={styles.thresholdInputWrap}>
+                          <TextInput
+                            value={elPct}
+                            onChangeText={(t) => setElPct(t.replace(/[^0-9]/g, '').slice(0, 3))}
+                            placeholder="80"
+                            placeholderTextColor={colors.textMuted}
+                            style={styles.thresholdInput}
+                            keyboardType="number-pad"
+                            maxLength={3}
+                          />
+                          <Text style={styles.thresholdPct}>%</Text>
+                        </View>
+                      </View>
+                    )}
+                    <GradientButton
+                      title="Save eligibility"
+                      onPress={() => saveEligibility(ev)}
+                      icon={<Icon name="shield-checkmark-outline" size={16} color={colors.textOnPrimary} />}
+                      style={{ marginTop: spacing.md }}
+                    />
+                  </View>
+                )}
+
+                {!isPast && dlEditFor === ev.id ? (
+                  <View>
+                    <Calendar
+                      minDate={new Date().toISOString().split('T')[0]}
+                      onDayPress={(d) => setDlDate(d.dateString)}
+                      markedDates={dlDate ? { [dlDate]: { selected: true, selectedColor: colors.primary } } : {}}
+                      theme={{
+                        todayTextColor: colors.primary,
+                        arrowColor: colors.primary,
+                        textMonthFontFamily: fonts.semibold,
+                        textDayFontFamily: fonts.regular,
+                        textDayHeaderFontFamily: fonts.medium,
+                      }}
+                      style={styles.calendar}
+                    />
+                    <Text style={styles.label}>Time (24h, HH:MM)</Text>
+                    <TextInput
+                      value={dlTime}
+                      onChangeText={setDlTime}
+                      placeholder="18:00"
+                      placeholderTextColor={colors.textMuted}
+                      style={styles.input}
+                      keyboardType="numbers-and-punctuation"
+                      maxLength={5}
+                    />
+                    <GradientButton
+                      title="Save deadline"
+                      onPress={() => saveDeadline(ev)}
+                      icon={<Icon name="hourglass-outline" size={16} color={colors.textOnPrimary} />}
+                      style={{ marginTop: spacing.md }}
+                    />
+                  </View>
+                ) : (
+                  <>
+                    {attendeesLoading ? (
+                      <ActivityIndicator color={colors.primary} style={{ marginTop: spacing.lg }} />
+                    ) : (
+                      (() => {
+                        const going = (attendees || []).filter((a) => a.status === 'going');
+                        const declined = (attendees || []).filter((a) => a.status === 'declined');
+                        return (
+                          <ScrollView style={styles.attendeeScroll} showsVerticalScrollIndicator={false}>
+                            <Text style={[styles.attendeeHeader, { color: colors.successDark }]}>
+                              Going ({going.length})
+                            </Text>
+                            {going.length ? (
+                              going.map((a) => (
+                                <View key={a.id} style={styles.attendeeRow}>
+                                  <Icon name="checkmark-circle" size={15} color={colors.success} />
+                                  <Text style={styles.attendeeName}>{a.fullname || 'Unknown'}</Text>
+                                </View>
+                              ))
+                            ) : (
+                              <Text style={styles.attendeeEmpty}>No one yet.</Text>
+                            )}
+
+                            <Text style={[styles.attendeeHeader, { color: colors.danger, marginTop: spacing.lg }]}>
+                              Can't make it ({declined.length})
+                            </Text>
+                            {declined.length ? (
+                              declined.map((a) => (
+                                <View key={a.id} style={styles.attendeeRow}>
+                                  <Icon name="close-circle" size={15} color={colors.danger} />
+                                  <Text style={styles.attendeeName}>{a.fullname || 'Unknown'}</Text>
+                                </View>
+                              ))
+                            ) : (
+                              <Text style={styles.attendeeEmpty}>None.</Text>
+                            )}
+                          </ScrollView>
+                        );
+                      })()
+                    )}
+                    <Pressable onPress={() => handleDelete(ev)} style={styles.detailDeleteBtn}>
+                      <Icon name="trash-outline" size={16} color={colors.danger} />
+                      <Text style={styles.detailDeleteText}>Delete event</Text>
+                    </Pressable>
+                  </>
                 )}
               </View>
             ) : isPast ? (
@@ -449,9 +817,14 @@ export default function EventsScreen() {
                   <Icon name="lock-closed" size={11} color={colors.textMuted} /> RSVP locked
                 </Text>
               </View>
+            ) : !rsvpOpen(ev) ? (
+              <Text style={styles.detailNote}>RSVP has closed for this event.</Text>
             ) : (
               <>
                 <Text style={styles.rsvpPrompt}>Will you be there?</Text>
+                {!!ev.rsvpDeadlineMs && (
+                  <Text style={styles.deadlineHint}>RSVP closes {fmtDeadline(ev.rsvpDeadlineMs)}</Text>
+                )}
                 <View style={styles.detailRsvpRow}>
                   <Pressable
                     onPress={() => handleRsvp(ev, 'going')}
@@ -473,7 +846,7 @@ export default function EventsScreen() {
                 </View>
                 {gated && !canGo && (
                   <Text style={styles.gateHintDetail}>
-                    You need 80% attendance to RSVP "Going" for this event.
+                    You need {threshold}% attendance to RSVP "Going" for this event.
                   </Text>
                 )}
                 <Text style={styles.lockedHint}>Your choice is final once confirmed.</Text>
@@ -623,8 +996,8 @@ export default function EventsScreen() {
 
                   <View style={styles.switchRow}>
                     <View style={{ flex: 1 }}>
-                      <Text style={styles.switchLabel}>Require 80% attendance</Text>
-                      <Text style={styles.switchHint}>Only eligible students can RSVP "Going".</Text>
+                      <Text style={styles.switchLabel}>Require attendance eligibility</Text>
+                      <Text style={styles.switchHint}>Only students at/above the threshold can RSVP "Going".</Text>
                     </View>
                     <Switch
                       value={fRequiresEligibility}
@@ -632,6 +1005,23 @@ export default function EventsScreen() {
                       trackColor={{ true: colors.primary, false: colors.borderStrong }}
                     />
                   </View>
+                  {fRequiresEligibility && (
+                    <View style={styles.thresholdRow}>
+                      <Text style={styles.thresholdLabel}>Minimum attendance</Text>
+                      <View style={styles.thresholdInputWrap}>
+                        <TextInput
+                          value={fThreshold}
+                          onChangeText={(t) => setFThreshold(t.replace(/[^0-9]/g, '').slice(0, 3))}
+                          placeholder="80"
+                          placeholderTextColor={colors.textMuted}
+                          style={styles.thresholdInput}
+                          keyboardType="number-pad"
+                          maxLength={3}
+                        />
+                        <Text style={styles.thresholdPct}>%</Text>
+                      </View>
+                    </View>
+                  )}
 
                   <GradientButton
                     title="Create Event"
@@ -674,6 +1064,124 @@ const styles = StyleSheet.create({
   },
   statusChipText: { fontSize: 12.5, fontFamily: fonts.semibold },
   tapHint: { fontSize: 13, fontFamily: fonts.semibold, color: colors.primary },
+  publishBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: radius.full,
+    borderWidth: 1.5,
+  },
+  publishBtnLg: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 7,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    marginTop: spacing.md,
+  },
+  publishOn: { borderColor: colors.success, backgroundColor: colors.successSoft },
+  publishOff: { borderColor: colors.border, backgroundColor: colors.surfaceMuted },
+  publishText: { fontSize: 12.5, fontFamily: fonts.semibold },
+  adminActions: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  deleteBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: radius.full,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: colors.dangerSoft,
+  },
+  cardTopRight: { alignItems: 'flex-end', justifyContent: 'space-between', gap: spacing.sm },
+  cdPill: { paddingVertical: 3, paddingHorizontal: 9, borderRadius: radius.full },
+  cdText: { fontSize: 11.5, fontFamily: fonts.bold },
+  cd_urgent: { backgroundColor: colors.dangerSoft },
+  cdText_urgent: { color: colors.danger },
+  cd_soon: { backgroundColor: colors.primarySoft },
+  cdText_soon: { color: colors.primaryDark },
+  cd_normal: { backgroundColor: colors.surfaceMuted },
+  cdText_normal: { color: colors.textSecondary },
+  cd_muted: { backgroundColor: colors.surfaceMuted },
+  cdText_muted: { color: colors.textMuted },
+  adminDetailRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.md,
+  },
+  adminDetailLabel: {
+    fontSize: 11,
+    fontFamily: fonts.medium,
+    color: colors.textMuted,
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+  adminDetailValue: { fontSize: 14, fontFamily: fonts.semibold, color: colors.text, marginTop: 2 },
+  smallBtn: {
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: radius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  smallBtnPrimary: { borderColor: colors.primary, backgroundColor: colors.primarySoft },
+  smallBtnText: { fontSize: 13, fontFamily: fonts.semibold, color: colors.textSecondary },
+  detailDeleteBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: radius.lg,
+    borderWidth: 1.5,
+    borderColor: colors.danger,
+    backgroundColor: colors.dangerSoft,
+    marginTop: spacing.lg,
+  },
+  detailDeleteText: { fontSize: 14, fontFamily: fonts.semibold, color: colors.danger },
+  deadlineHint: {
+    fontSize: 12.5,
+    fontFamily: fonts.medium,
+    color: colors.textMuted,
+    marginBottom: spacing.md,
+  },
+  thresholdRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: spacing.md,
+  },
+  thresholdLabel: { fontSize: 14, fontFamily: fonts.medium, color: colors.textSecondary },
+  thresholdInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+  },
+  thresholdInput: {
+    minWidth: 44,
+    paddingVertical: 10,
+    fontSize: 16,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+    textAlign: 'center',
+  },
+  thresholdPct: { fontSize: 15, fontFamily: fonts.semibold, color: colors.textMuted },
+  elEditor: {
+    backgroundColor: colors.surfaceMuted,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+    marginTop: spacing.sm,
+  },
   detailMeta: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: spacing.sm },
   detailMetaText: { fontSize: 14, fontFamily: fonts.medium, color: colors.textSecondary, flexShrink: 1 },
   detailDesc: {
