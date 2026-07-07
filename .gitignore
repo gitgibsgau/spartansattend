@@ -8,6 +8,7 @@ node_modules/
 /scripts/group-spartans.js
 /scripts/ungrouped-attendees.js
 /scripts/sync-events.js
+/scripts/tier-students.js
 /scripts/groups/
 /scripts/*.csv
 

@@ -33,7 +33,7 @@ service cloud.firestore {
       // Admin: anything. Self: profile fields only — never role/scope/group/email.
       // Costume admin: only the handout flags, on anyone's doc.
       allow update: if isAdmin()
-        || (isSelf(uid) && !changed(['role', 'adminScopes', 'group', 'groupRole', 'groupLead', 'groupBaseName', 'email']))
+        || (isSelf(uid) && !changed(['role', 'adminScopes', 'group', 'groupRole', 'groupLead', 'groupBaseName', 'email', 'tier']))
         || (hasScope('costume') && onlyChanged(['kurtaReceived', 'jacketReceived', 'costumeReceived']));
 
       allow delete: if isAdmin();
