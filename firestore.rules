@@ -70,12 +70,20 @@ service cloud.firestore {
     }
 
     // ---- Events + RSVPs ----
-    // Students see only PUBLISHED events; admins see everything (drafts synced
-    // from the gsynch API stay hidden until an admin publishes them). A student
-    // list query must therefore filter where('published','==',true).
+    // ROLLOUT NOTE: read is intentionally open to any signed-in user for now,
+    // because the CURRENTLY SHIPPED app lists events without a published filter.
+    // Once the new build (whose student query filters where('published','==',
+    // true)) is live and adopted, tighten read to the publish gate:
+    //     allow read: if isAdmin() || resource.data.published == true;
     match /events/{eventId} {
-      allow read: if isAdmin() || resource.data.published == true;
-      allow write: if isAdmin();
+      allow read: if isSignedIn();
+      // Admins manage events. A signed-in student may bump ONLY goingCount, and
+      // only by +1, when they RSVP "Going" — everything else is admin-only.
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isSignedIn()
+            && onlyChanged(['goingCount'])
+            && request.resource.data.goingCount == resource.data.get('goingCount', 0) + 1);
       match /rsvps/{uid} {
         allow read: if isSignedIn();
         allow write: if isSelf(uid) || isAdmin();
