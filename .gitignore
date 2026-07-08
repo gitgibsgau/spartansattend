@@ -9,6 +9,7 @@ node_modules/
 /scripts/ungrouped-attendees.js
 /scripts/sync-events.js
 /scripts/tier-students.js
+/scripts/allocate.js
 /scripts/groups/
 /scripts/*.csv
 
