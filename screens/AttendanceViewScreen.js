@@ -378,13 +378,20 @@ export default function AttendanceViewScreen({ navigation }) {
 
         <FlatList
           key={numColumns}
+          style={styles.cardList}
           data={sessionData}
           renderItem={renderCard}
           keyExtractor={(item, i) => `${item.id}-${i}`}
           numColumns={numColumns}
           columnWrapperStyle={{ justifyContent: 'space-between', marginBottom: 15 }}
-          contentContainerStyle={{ paddingBottom: 100, marginTop: 20 }}
+          contentContainerStyle={{ paddingBottom: 100, marginTop: spacing.lg }}
           showsVerticalScrollIndicator={false}
+          scrollEventThrottle={16}
+          onScroll={(e) => {
+            // Collapse the calendar once the user scrolls into the cards, giving
+            // them the full area. Tap "Show Calendar" to bring it back.
+            if (e.nativeEvent.contentOffset.y > 20 && showCalendar) setShowCalendar(false);
+          }}
         />
       </View>
 
@@ -443,6 +450,9 @@ export default function AttendanceViewScreen({ navigation }) {
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: spacing.xl, backgroundColor: colors.background },
+  // flex:1 + minHeight:0 bounds the list to the space under the calendar so it
+  // scrolls within its own viewport instead of sliding behind the calendar.
+  cardList: { flex: 1, minHeight: 0 },
   loaderContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   summaryCard: {
     flexDirection: 'row',

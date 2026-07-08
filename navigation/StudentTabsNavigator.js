@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import ProfileStackNavigator from './ProfileStackNavigator';
 import AttendanceStackNavigator from './AttendanceStackNavigator';
 import EventsScreen from '../screens/EventsScreen';
+import AllocationsScreen from '../screens/AllocationsScreen';
 import DummyLogoutScreen from '../screens/DummyLogoutScreen';
 import AdminParikshanScreen from '../screens/AdminParikshanScreen';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -37,6 +38,7 @@ export default function StudentTabsNavigator() {
           if (route.name === 'Profile') iconName = 'person-circle-outline';
           else if (route.name === 'Attendance') iconName = 'calendar-outline';
           else if (route.name === 'Events') iconName = 'calendar-clear-outline';
+          else if (route.name === 'Allocations') iconName = 'clipboard-outline';
           else if (route.name === 'Parikshan') iconName = 'school-outline';
           else if (route.name === 'Logout') iconName = 'log-out-outline';
 
@@ -72,6 +74,7 @@ export default function StudentTabsNavigator() {
         options={{ headerShown: false }}
       />
       <Tab.Screen name="Events" component={EventsScreen} />
+      <Tab.Screen name="Allocations" component={AllocationsScreen} />
       {isScorer && (
         <Tab.Screen
           name="Parikshan"

@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator } from 'react-native';
 import { auth, db } from '../firebase';
-import { doc, onSnapshot, collection, query, where, getCountFromServer } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, getCountFromServer, setDoc } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 import * as Animatable from 'react-native-animatable';
@@ -57,8 +57,36 @@ export default function AdminHomeScreen({ navigation }) {
     // fetchCounts is driven by the currentSeason effect below
   }, []);
 
-  const { currentSeason, activeStage, midReleased, finalReleased } = useSeason();
+  const { currentSeason, activeStage, midReleased, finalReleased, seasonTotalSessions } = useSeason();
   const STAGE_LABEL = { mid: 'Mid-Season', final: 'Final' };
+
+  // Season practice target — planned total practices; drives the "practices
+  // remaining / needed to stay eligible" hint on student profiles.
+  const [target, setTarget] = useState('');
+  const [savingTarget, setSavingTarget] = useState(false);
+  useEffect(() => {
+    setTarget(seasonTotalSessions != null ? String(seasonTotalSessions) : '');
+  }, [seasonTotalSessions]);
+
+  const saveTarget = async () => {
+    const n = Number(target);
+    if (!Number.isInteger(n) || n < 0 || n > 200) {
+      return showBanner('error', 'Enter a valid number of practices (0–200).');
+    }
+    if (n < counts.sessions) {
+      return showBanner('error', `Target can't be below the ${counts.sessions} practices already held.`);
+    }
+    setSavingTarget(true);
+    try {
+      await setDoc(doc(db, 'globalConfig', 'parikshanSettings'), { seasonTotalSessions: n }, { merge: true });
+      showBanner('success', 'Season practice target saved.');
+    } catch (err) {
+      console.error('Failed to save season target:', err);
+      showBanner('error', 'Could not save the target.');
+    } finally {
+      setSavingTarget(false);
+    }
+  };
 
   useEffect(() => {
     if (currentSeason) fetchCounts(currentSeason);
@@ -121,6 +149,36 @@ export default function AdminHomeScreen({ navigation }) {
             <Text style={styles.metricValueDark}>{counts.rebinds}</Text>
             <Text style={styles.metricLabel}>Rebind Requests</Text>
           </View>
+        </View>
+
+        <View style={[styles.infoCard, styles.cardSpacing]}>
+          <Text style={styles.sectionTitle}>Season practices</Text>
+          <Text style={styles.targetHint}>
+            {counts.sessions} held so far. Set the planned total for the season so students can see how many practices remain and how many they need to attend to stay eligible.
+          </Text>
+          <View style={styles.targetRow}>
+            <TextInput
+              value={target}
+              onChangeText={(t) => setTarget(t.replace(/[^0-9]/g, ''))}
+              placeholder="e.g. 24"
+              placeholderTextColor={colors.textMuted}
+              keyboardType="number-pad"
+              maxLength={3}
+              style={styles.targetInput}
+            />
+            <TouchableOpacity onPress={saveTarget} disabled={savingTarget} style={styles.targetSave} activeOpacity={0.85}>
+              {savingTarget ? (
+                <ActivityIndicator size="small" color={colors.textOnPrimary} />
+              ) : (
+                <Text style={styles.targetSaveText}>Save</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+          {seasonTotalSessions != null && (
+            <Text style={styles.targetCurrent}>
+              Target {seasonTotalSessions} · {Math.max(0, seasonTotalSessions - counts.sessions)} remaining
+            </Text>
+          )}
         </View>
 
         <TouchableOpacity
@@ -360,6 +418,51 @@ const styles = StyleSheet.create({
   },
   cardSpacing: {
     marginBottom: spacing.lg,
+  },
+  targetHint: {
+    fontSize: 12.5,
+    fontFamily: fonts.regular,
+    color: colors.textMuted,
+    lineHeight: 18,
+    marginBottom: spacing.md,
+    marginTop: -spacing.sm,
+  },
+  targetRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  targetInput: {
+    flex: 1,
+    backgroundColor: colors.surfaceMuted,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingVertical: 12,
+    paddingHorizontal: spacing.lg,
+    fontSize: 16,
+    fontFamily: fonts.semibold,
+    color: colors.text,
+  },
+  targetSave: {
+    backgroundColor: colors.primary,
+    paddingVertical: 13,
+    paddingHorizontal: spacing.xl,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minWidth: 84,
+  },
+  targetSaveText: {
+    color: colors.textOnPrimary,
+    fontFamily: fonts.semibold,
+    fontSize: 15,
+  },
+  targetCurrent: {
+    marginTop: spacing.md,
+    fontSize: 13,
+    fontFamily: fonts.medium,
+    color: colors.textSecondary,
   },
   actionCard: {
     flexDirection: 'row',

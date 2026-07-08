@@ -34,7 +34,7 @@ export default function ProfileScreen({ navigation }) {
     const [modalVisible, setModalVisible] = useState(false);
 
     // Season + per-stage release flags (centralized)
-    const { currentSeason, midReleased, finalReleased } = useSeason();
+    const { currentSeason, midReleased, finalReleased, seasonTotalSessions } = useSeason();
     const { unreadCount } = useNotifications();
     const insets = useSafeAreaInsets();
 
@@ -287,6 +287,27 @@ export default function ProfileScreen({ navigation }) {
     const sessionsToQualify =
         totalSessions > 0 ? Math.max(0, Math.ceil(0.8 * totalSessions) - attended) : 0;
 
+    // Forward-looking season projection (informational only — does NOT change the
+    // % ring or the eligibility pill above). Needs the admin-set planned total.
+    let seasonProjection = null;
+    if (seasonTotalSessions && seasonTotalSessions > 0) {
+        const requiredTotal = Math.ceil(0.8 * seasonTotalSessions);
+        const stillNeeded = requiredTotal - attended;
+        const remaining = Math.max(0, seasonTotalSessions - totalSessions);
+        const p = (n) => (n === 1 ? 'practice' : 'practices');
+        if (remaining === 0) {
+            seasonProjection = null; // season's practices are done; nothing to project
+        } else if (stillNeeded <= 0) {
+            seasonProjection = `Great work! You've already secured your attendance eligibility for events. ${remaining} ${p(remaining)} left this season, keep it up. 🎉`;
+        } else if (stillNeeded > remaining) {
+            seasonProjection = `${remaining} ${p(remaining)} left this season, and every one counts! Attend as many as you can to strengthen your spot for events.`;
+        } else {
+            seasonProjection = isEligible
+                ? `You're eligible right now. Attend at least ${stillNeeded} of the ${remaining} ${p(remaining)} left to stay eligible through the season. 💪`
+                : `${remaining} ${p(remaining)} left this season. Attend ${stillNeeded} more to become eligible for events. You've got this! 💪`;
+        }
+    }
+
     // ---- Streak & badges ----
     const badges = computeBadges({
         attended,
@@ -364,6 +385,12 @@ export default function ProfileScreen({ navigation }) {
                                 </Text>
                             </View>
                         </View>
+                        {!!seasonProjection && (
+                            <View style={styles.seasonProjection}>
+                                <Icon name="calendar-outline" size={15} color={colors.primaryDark} style={{ marginTop: 1 }} />
+                                <Text style={styles.seasonProjectionText}>{seasonProjection}</Text>
+                            </View>
+                        )}
                         <Text style={styles.amberNote}>
                             Note: 80% attendance is required for event allocations.
                         </Text>
@@ -972,6 +999,22 @@ const styles = StyleSheet.create({
         fontFamily: 'Poppins_400Regular',
         color: '#b45309',
         marginTop: 8,
+    },
+    seasonProjection: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        gap: spacing.sm,
+        backgroundColor: colors.primarySoft,
+        borderRadius: radius.md,
+        padding: spacing.md,
+        marginTop: spacing.md,
+    },
+    seasonProjectionText: {
+        flex: 1,
+        fontSize: 12.5,
+        lineHeight: 18,
+        fontFamily: fonts.medium,
+        color: colors.primaryDark,
     },
     releasedScoreCard: {
         backgroundColor: '#e0f2fe',

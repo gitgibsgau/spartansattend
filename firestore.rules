@@ -33,7 +33,7 @@ service cloud.firestore {
       // Admin: anything. Self: profile fields only — never role/scope/group/email.
       // Costume admin: only the handout flags, on anyone's doc.
       allow update: if isAdmin()
-        || (isSelf(uid) && !changed(['role', 'adminScopes', 'group', 'groupRole', 'groupLead', 'groupBaseName', 'email']))
+        || (isSelf(uid) && !changed(['role', 'adminScopes', 'group', 'groupRole', 'groupLead', 'groupBaseName', 'email', 'tier']))
         || (hasScope('costume') && onlyChanged(['kurtaReceived', 'jacketReceived', 'costumeReceived']));
 
       allow delete: if isAdmin();
@@ -70,9 +70,20 @@ service cloud.firestore {
     }
 
     // ---- Events + RSVPs ----
+    // ROLLOUT NOTE: read is intentionally open to any signed-in user for now,
+    // because the CURRENTLY SHIPPED app lists events without a published filter.
+    // Once the new build (whose student query filters where('published','==',
+    // true)) is live and adopted, tighten read to the publish gate:
+    //     allow read: if isAdmin() || resource.data.published == true;
     match /events/{eventId} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      // Admins manage events. A signed-in student may bump ONLY goingCount, and
+      // only by +1, when they RSVP "Going" — everything else is admin-only.
+      allow create, delete: if isAdmin();
+      allow update: if isAdmin()
+        || (isSignedIn()
+            && onlyChanged(['goingCount'])
+            && request.resource.data.goingCount == resource.data.get('goingCount', 0) + 1);
       match /rsvps/{uid} {
         allow read: if isSignedIn();
         allow write: if isSelf(uid) || isAdmin();

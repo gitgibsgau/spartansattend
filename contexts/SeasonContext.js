@@ -14,6 +14,9 @@ export const SeasonProvider = ({ children }) => {
   // Which stage is currently OPEN for scorers to enter scores: 'mid' | 'final' | null.
   // Independent of release flags (which control student visibility).
   const [activeStage, setActiveStage] = useState(null);
+  // Admin-set planned number of practices for the whole season. Used to project
+  // how many remaining practices a student must attend to stay eligible.
+  const [seasonTotalSessions, setSeasonTotalSessions] = useState(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,6 +29,9 @@ export const SeasonProvider = ({ children }) => {
       // keep showing until an admin sets the new flags explicitly.
       setFinalReleased(data.finalReleased != null ? !!data.finalReleased : legacy);
       setActiveStage(data.activeStage === 'mid' || data.activeStage === 'final' ? data.activeStage : null);
+      setSeasonTotalSessions(
+        Number.isFinite(data.seasonTotalSessions) ? data.seasonTotalSessions : null
+      );
       setLoading(false);
     };
     const unsubscribeAuth = onAuthStateChanged(auth, (user) => {
@@ -61,7 +67,7 @@ export const SeasonProvider = ({ children }) => {
   }, []);
 
   return (
-    <SeasonContext.Provider value={{ currentSeason, midReleased, finalReleased, activeStage, loading }}>
+    <SeasonContext.Provider value={{ currentSeason, midReleased, finalReleased, activeStage, seasonTotalSessions, loading }}>
       {children}
     </SeasonContext.Provider>
   );
@@ -76,6 +82,7 @@ export const useSeason = () => {
     midReleased: ctx.midReleased,
     finalReleased: ctx.finalReleased,
     activeStage: ctx.activeStage,
+    seasonTotalSessions: ctx.seasonTotalSessions ?? null,
     // Back-compat: anything still reading `parikshanReleased` gets the Final flag.
     parikshanReleased: ctx.finalReleased,
     loading: ctx.loading,
