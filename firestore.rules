@@ -17,13 +17,16 @@ service cloud.firestore {
     function reqUser() { return get(/databases/$(database)/documents/users/$(request.auth.uid)).data; }
     function isAdmin() { return isSignedIn() && reqUser().role == 'admin'; }
     function hasScope(s) { return isSignedIn() && (s in reqUser().get('adminScopes', [])); }
+    // Designated parikshan scorers (a student can be a scorer) — they need to
+    // read the roster and read/write the score collections.
+    function isScorer() { return isSignedIn() && reqUser().get('isScorer', false) == true; }
     function changed(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasAny(keys); }
     function onlyChanged(keys) { return request.resource.data.diff(resource.data).affectedKeys().hasOnly(keys); }
 
     // ---- Users ----
     match /users/{uid} {
-      // Own doc always; admins + roster-scoped admins read others.
-      allow read: if isSelf(uid) || isAdmin() || hasScope('costume') || hasScope('donation');
+      // Own doc always; admins, roster-scoped admins, and scorers read others.
+      allow read: if isSelf(uid) || isAdmin() || isScorer() || hasScope('costume') || hasScope('donation');
 
       // Self-registration: a plain student only; cannot self-grant power.
       allow create: if isSelf(uid)
@@ -33,7 +36,7 @@ service cloud.firestore {
       // Admin: anything. Self: profile fields only — never role/scope/group/email.
       // Costume admin: only the handout flags, on anyone's doc.
       allow update: if isAdmin()
-        || (isSelf(uid) && !changed(['role', 'adminScopes', 'group', 'groupRole', 'groupLead', 'groupBaseName', 'email', 'tier']))
+        || (isSelf(uid) && !changed(['role', 'adminScopes', 'group', 'groupRole', 'groupLead', 'groupBaseName', 'email', 'tier', 'isScorer', 'isSuperAdmin']))
         || (hasScope('costume') && onlyChanged(['kurtaReceived', 'jacketReceived', 'costumeReceived']));
 
       allow delete: if isAdmin();
@@ -61,12 +64,12 @@ service cloud.firestore {
 
     // ---- Parikshan scores (doc id = "<uid>_<season>"): own + admin read, admin write ----
     match /parikshanScores/{id} {
-      allow read: if isAdmin() || (isSignedIn() && id.split('_')[0] == request.auth.uid);
-      allow write: if isAdmin();
+      allow read: if isAdmin() || isScorer() || (isSignedIn() && id.split('_')[0] == request.auth.uid);
+      allow write: if isAdmin() || isScorer();
     }
     match /finalParikshanScores/{id} {
-      allow read: if isAdmin() || (isSignedIn() && id.split('_')[0] == request.auth.uid);
-      allow write: if isAdmin();
+      allow read: if isAdmin() || isScorer() || (isSignedIn() && id.split('_')[0] == request.auth.uid);
+      allow write: if isAdmin() || isScorer();
     }
 
     // ---- Events + RSVPs ----
