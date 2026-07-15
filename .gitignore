@@ -10,6 +10,11 @@ node_modules/
 /scripts/sync-events.js
 /scripts/tier-students.js
 /scripts/allocate.js
+/scripts/allocate-trial.js
+/scripts/merge-active-into-input.js
+/scripts/regroup3.js
+/scripts/export-companies.js
+/scripts/dump-groups.js
 /scripts/groups/
 /scripts/*.csv
 
