@@ -40,6 +40,7 @@ import {
 } from 'firebase/firestore';
 import { db, auth } from '../firebase';
 import { syncEventReminders } from '../utils/eventReminders';
+import { useViewMode } from '../contexts/ViewModeContext';
 import * as Animatable from 'react-native-animatable';
 import Icon from 'react-native-vector-icons/Ionicons';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
@@ -93,6 +94,7 @@ const roleDemandTotal = (rd) => (rd ? ALLOC_ROLES.reduce((n, r) => n + (Number(r
 
 export default function EventsScreen() {
   const { currentSeason } = useSeason();
+  const { effectiveRole } = useViewMode();
   const insets = useSafeAreaInsets();
   const [role, setRole] = useState(null);
   const [fullname, setFullname] = useState('');
@@ -132,8 +134,9 @@ export default function EventsScreen() {
         fetchAttendanceEligibility(uid, currentSeason),
       ]);
       const userData = userSnap.exists() ? userSnap.data() : {};
-      const isAdmin = userData.role === 'admin';
-      setRole(userData.role || 'student');
+      // Branch on effectiveRole so an admin in member mode gets the RSVP view.
+      const isAdmin = effectiveRole === 'admin';
+      setRole(effectiveRole);
       setFullname(userData.fullname || 'Student');
       setEligibility(elig);
 
@@ -176,12 +179,12 @@ export default function EventsScreen() {
     } finally {
       setLoading(false);
     }
-  }, [currentSeason]);
+  }, [currentSeason, effectiveRole]);
 
   useFocusEffect(
     useCallback(() => {
       load();
-    }, [load])
+    }, [load, effectiveRole])
   );
 
   // Admin: load the full attendee list when an event is opened.

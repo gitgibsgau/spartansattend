@@ -14,10 +14,13 @@ import {
   Poppins_400Regular,
 } from '@expo-google-fonts/poppins';
 import UnauthStackNavigator from './navigation/UnauthStackNavigator';
+import { ViewModeProvider } from './contexts/ViewModeContext';
 
 export default function AuthGate() {
   const [initializing, setInitializing] = useState(true);
   const [userRole, setUserRole] = useState(null);
+  // Admins default to their admin tools; they can flip to the member experience.
+  const [viewMode, setViewMode] = useState('admin');
 
   const [fontsLoaded] = useFonts({
     Poppins_600SemiBold,
@@ -121,8 +124,20 @@ export default function AuthGate() {
     );
   }
 
-  if (userRole === 'admin') return <AdminTabsNavigator />;
-  if (userRole === 'student') return <StudentTabsNavigator />;
+  if (userRole === 'admin') {
+    return (
+      <ViewModeProvider role="admin" viewMode={viewMode} setViewMode={setViewMode}>
+        {viewMode === 'member' ? <StudentTabsNavigator /> : <AdminTabsNavigator />}
+      </ViewModeProvider>
+    );
+  }
+  if (userRole === 'student') {
+    return (
+      <ViewModeProvider role="student" viewMode="member" setViewMode={() => {}}>
+        <StudentTabsNavigator />
+      </ViewModeProvider>
+    );
+  }
   return <UnauthStackNavigator />;
 }
 

@@ -15,6 +15,11 @@ node_modules/
 /scripts/regroup3.js
 /scripts/export-companies.js
 /scripts/dump-groups.js
+/scripts/clear-event-desc.js
+/scripts/list-rsvps.js
+/scripts/reset-confetti.js
+/scripts/attendance-dhol.js
+/scripts/set-dhol.js
 /scripts/groups/
 /scripts/*.csv
 

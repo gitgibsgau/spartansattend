@@ -17,6 +17,7 @@ import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { useSeason } from '../contexts/SeasonContext';
+import { useViewMode } from '../contexts/ViewModeContext';
 import { useNotifications } from '../contexts/NotificationsContext';
 import { tallyStreaks, computeBadges } from '../utils/streaks';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
@@ -35,6 +36,7 @@ export default function ProfileScreen({ navigation }) {
 
     // Season + per-stage release flags (centralized)
     const { currentSeason, midReleased, finalReleased, seasonTotalSessions } = useSeason();
+    const { canToggle, setViewMode } = useViewMode();
     const { unreadCount } = useNotifications();
     const insets = useSafeAreaInsets();
 
@@ -341,6 +343,16 @@ export default function ProfileScreen({ navigation }) {
                                         : (user.groupLead ? ` · Lead: ${user.groupLead}` : '')}
                                 </Text>
                             </View>
+                        )}
+                        {canToggle && (
+                            <TouchableOpacity
+                                style={styles.adminSwitch}
+                                onPress={() => setViewMode('admin')}
+                                activeOpacity={0.85}
+                            >
+                                <Icon name="swap-horizontal" size={15} color={colors.primaryDark} />
+                                <Text style={styles.adminSwitchText}>Switch to Admin View</Text>
+                            </TouchableOpacity>
                         )}
                     </View>
 
@@ -754,6 +766,23 @@ const styles = StyleSheet.create({
         backgroundColor: colors.primarySoft,
     },
     groupPillText: {
+        fontSize: 13,
+        fontFamily: 'Poppins_600SemiBold',
+        color: colors.primaryDark,
+    },
+    adminSwitch: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 6,
+        marginTop: 12,
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 999,
+        borderWidth: 1.5,
+        borderColor: colors.primary,
+        backgroundColor: colors.surface,
+    },
+    adminSwitchText: {
         fontSize: 13,
         fontFamily: 'Poppins_600SemiBold',
         color: colors.primaryDark,

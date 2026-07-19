@@ -8,6 +8,7 @@ import * as Animatable from 'react-native-animatable';
 import { LinearGradient } from '../components/ui/Gradient';
 import { colors, spacing, radius, fonts, shadows } from '../theme';
 import { useSeason } from '../contexts/SeasonContext';
+import { useViewMode } from '../contexts/ViewModeContext';
 
 export default function AdminHomeScreen({ navigation }) {
   const [user, setUser] = useState(null);
@@ -58,6 +59,7 @@ export default function AdminHomeScreen({ navigation }) {
   }, []);
 
   const { currentSeason, activeStage, midReleased, finalReleased, seasonTotalSessions } = useSeason();
+  const { setViewMode } = useViewMode();
   const STAGE_LABEL = { mid: 'Mid-Season', final: 'Final' };
 
   // Season practice target — planned total practices; drives the "practices
@@ -114,11 +116,21 @@ export default function AdminHomeScreen({ navigation }) {
               <Text style={styles.greeting}>{user.fullname?.split(' ')[0]}</Text>
               <Text style={styles.subtitle}>Admin overview for the current season</Text>
             </View>
-            {currentSeason && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>Season {currentSeason}</Text>
-              </View>
-            )}
+            <View style={styles.headerRight}>
+              {currentSeason && (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>Season {currentSeason}</Text>
+                </View>
+              )}
+              <TouchableOpacity
+                style={styles.modePill}
+                onPress={() => setViewMode('member')}
+                activeOpacity={0.85}
+              >
+                <Icon name="swap-horizontal" size={14} color={colors.textOnPrimary} />
+                <Text style={styles.modePillText}>Member View</Text>
+              </TouchableOpacity>
+            </View>
           </LinearGradient>
         </Animatable.View>
 
@@ -311,11 +323,29 @@ const styles = StyleSheet.create({
     fontFamily: fonts.regular,
     marginTop: 4,
   },
+  headerRight: {
+    alignItems: 'flex-end',
+    gap: spacing.sm,
+  },
   badge: {
     backgroundColor: 'rgba(255,255,255,0.22)',
     paddingVertical: 8,
     paddingHorizontal: 14,
     borderRadius: radius.full,
+  },
+  modePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+    paddingVertical: 7,
+    paddingHorizontal: 12,
+    borderRadius: radius.full,
+  },
+  modePillText: {
+    color: colors.textOnPrimary,
+    fontSize: 12,
+    fontFamily: fonts.semibold,
   },
   badgeText: {
     color: colors.textOnPrimary,
