@@ -20,6 +20,14 @@ node_modules/
 /scripts/reset-confetti.js
 /scripts/attendance-dhol.js
 /scripts/set-dhol.js
+/scripts/attendance-scores.js
+/scripts/set-scores.js
+/scripts/clear-scores.js
+/scripts/event-rsvp-report.js
+/scripts/merge-rsvp-report.js
+/scripts/reset-event-rsvps.js
+/scripts/set-event-times.js
+/scripts/rsvp-diff.js
 /scripts/groups/
 /scripts/*.csv
 
@@ -78,3 +86,5 @@ firebase-debug.log
 
 # EAS config file
 eas.json
+# Cloud Functions deps
+/functions/node_modules/

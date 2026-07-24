@@ -1,0 +1,12 @@
+{
+  "name": "spartansattend-functions",
+  "description": "HTTP API for SpartansAttend (event RSVP 'going' lists for logistics).",
+  "engines": { "node": "20" },
+  "main": "index.js",
+  "private": true,
+  "dependencies": {
+    "express": "^4.19.2",
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^5.1.1"
+  }
+}
