@@ -539,10 +539,14 @@ export default function EventsScreen() {
           <View style={styles.divider} />
 
           <View style={styles.cardFooter}>
-            <View style={styles.goingWrap}>
-              <Icon name="people" size={15} color={colors.primary} />
-              <Text style={styles.goingCount}>{item.goingCount} going</Text>
-            </View>
+            {role === 'admin' ? (
+              <View style={styles.goingWrap}>
+                <Icon name="people" size={15} color={colors.primary} />
+                <Text style={styles.goingCount}>{item.goingCount} going</Text>
+              </View>
+            ) : (
+              <View />
+            )}
 
             {role === 'admin' ? (
               <View style={styles.adminActions}>
@@ -655,10 +659,12 @@ export default function EventsScreen() {
                 <Text style={styles.detailMetaText}>{ev.venue}</Text>
               </View>
             )}
-            <View style={styles.detailMeta}>
-              <Icon name="people-outline" size={16} color={colors.primary} />
-              <Text style={styles.detailMetaText}>{ev.goingCount} going</Text>
-            </View>
+            {role === 'admin' && (
+              <View style={styles.detailMeta}>
+                <Icon name="people-outline" size={16} color={colors.primary} />
+                <Text style={styles.detailMetaText}>{ev.goingCount} going</Text>
+              </View>
+            )}
             {!!ev.rsvpDeadlineMs && (
               <View style={styles.detailMeta}>
                 <Icon name="hourglass-outline" size={16} color={rsvpOpen(ev) ? colors.primary : colors.danger} />
