@@ -427,7 +427,7 @@ export default function ProfileScreen({ navigation }) {
                         >
                             <Icon name="calendar-outline" size={22} color={colors.primary} />
                             <Text style={styles.tileValue}>{user.goingEventsCount || 0}</Text>
-                            <Text style={styles.tileLabel}>events going</Text>
+                            <Text style={styles.tileLabel}>events RSVP'd</Text>
                             <Text style={styles.tileSub}>Tap to view</Text>
                         </TouchableOpacity>
                     </View>
