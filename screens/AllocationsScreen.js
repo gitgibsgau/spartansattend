@@ -39,6 +39,21 @@ const ROLE_ICON = {
   'Event Management': 'clipboard',
 };
 
+// Per-role chip colors (soft bg + darker text), echoing the allocation sheet's
+// colour coding. `bg` is the pill background, `fg` the icon + label colour.
+const ROLE_STYLE = {
+  Dhol: { bg: '#EEF2FF', fg: '#4338CA' },          // indigo
+  Tasha: { bg: '#FCE7F3', fg: '#BE185D' },         // pink
+  Dhwaj: { bg: '#FEF3C7', fg: '#B45309' },         // amber
+  'Main Dhwaj': { bg: '#FFEDD5', fg: '#C2410C' },  // orange
+  'Event Mgmt': { bg: '#DCFCE7', fg: '#15803D' },  // green
+  'Event Management': { bg: '#DCFCE7', fg: '#15803D' },
+  Media: { bg: '#CCFBF1', fg: '#0F766E' },         // teal
+  Toll: { bg: '#EDE9FE', fg: '#6D28D9' },          // violet
+  Zanj: { bg: '#F1F5F9', fg: '#475569' },          // slate
+  default: { bg: '#EEF2FF', fg: '#4338CA' },
+};
+
 export default function AllocationsScreen() {
   const { currentSeason } = useSeason();
   const [events, setEvents] = useState([]);
@@ -142,6 +157,7 @@ export default function AllocationsScreen() {
           events.map((e, i) => {
             const badge = dateBadge(e.startsMs, e.eventDate);
             const icon = (e.allocation && ROLE_ICON[e.allocation]) || 'musical-notes';
+            const rs = (e.allocation && ROLE_STYLE[e.allocation]) || ROLE_STYLE.default;
             return (
               <Animatable.View
                 key={e.id}
@@ -167,9 +183,9 @@ export default function AllocationsScreen() {
                 </View>
 
                 {e.allocation ? (
-                  <View style={styles.roleChip}>
-                    <Icon name={icon} size={15} color={colors.textOnPrimary} />
-                    <Text style={styles.roleChipText}>{e.allocation}</Text>
+                  <View style={[styles.roleChip, { backgroundColor: rs.bg }]}>
+                    <Icon name={icon} size={15} color={rs.fg} />
+                    <Text style={[styles.roleChipText, { color: rs.fg }]}>{e.allocation}</Text>
                   </View>
                 ) : (
                   <View style={styles.noRolePill}>
@@ -243,10 +259,10 @@ const styles = StyleSheet.create({
   metaText: { flex: 1, fontSize: 12.5, fontFamily: fonts.regular, color: colors.textMuted },
   roleChip: {
     flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start',
-    backgroundColor: colors.primary, paddingVertical: 7, paddingHorizontal: 14,
+    paddingVertical: 7, paddingHorizontal: 14,
     borderRadius: radius.full, marginTop: spacing.md,
   },
-  roleChipText: { color: colors.textOnPrimary, fontSize: 14, fontFamily: fonts.bold },
+  roleChipText: { fontSize: 14, fontFamily: fonts.bold },
   noRolePill: {
     flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
     backgroundColor: colors.surfaceAlt || '#F1F5F9', paddingVertical: 6, paddingHorizontal: 12,
