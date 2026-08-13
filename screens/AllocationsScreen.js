@@ -1,19 +1,102 @@
 // screens/AllocationsScreen.js
-// Student-facing Allocations tab. Placeholder "coming soon" state that previews
-// the planned layout: an availability/allocated summary up top, then each
-// RSVP'd event tagged with the student's assigned role (Dhol, Dhwaj, Tasha,
-// Toll, Zanj, Media, Event Management) — with a dhol number when on Dhol.
-import React from 'react';
-import { View, Text, ScrollView, StyleSheet } from 'react-native';
+// Student-facing Allocations tab. Shows, for each upcoming event whose
+// allocations have been published (event.allocationsPublished === true), the
+// role this member has been assigned (Dhol, Dhwaj, Main Dhwaj, Tasha, Toll,
+// Zanj, Media, Event Mgmt), plus reporting/start time and venue. Reads the
+// member's own doc from events/{id}/allocations/{uid}. The staged reveal is
+// gated by allocationsPublished (admins flip it once assignments are final).
+import React, { useCallback, useState } from 'react';
+import { View, Text, ScrollView, StyleSheet, ActivityIndicator } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
+import { collection, query, where, getDocs, getDoc, doc } from 'firebase/firestore';
 import Icon from 'react-native-vector-icons/Ionicons';
 import * as Animatable from 'react-native-animatable';
 import AppBackgroundWrapper from '../components/AppBackgroundWrapper';
 import { LinearGradient } from '../components/ui/Gradient';
+import { db, auth } from '../firebase';
+import { useSeason } from '../contexts/SeasonContext';
 import { colors, spacing, radius, fonts, shadows } from '../theme';
 
-const ROLES = ['Dhol', 'Dhwaj', 'Tasha', 'Toll', 'Zanj', 'Media', 'Event Management'];
+const dateBadge = (ms, eventDate) => {
+  const d = ms ? new Date(ms) : (eventDate ? new Date(`${eventDate}T00:00:00`) : null);
+  if (!d || Number.isNaN(d.getTime())) return { month: '—', day: '' };
+  return {
+    month: d.toLocaleString(undefined, { month: 'short' }).toUpperCase(),
+    day: d.getDate(),
+  };
+};
+
+// Icon per allocation role (falls back to musical-notes).
+const ROLE_ICON = {
+  Dhol: 'musical-notes',
+  Tasha: 'musical-notes',
+  Dhwaj: 'flag',
+  'Main Dhwaj': 'flag',
+  Toll: 'ellipse',
+  Zanj: 'disc',
+  Media: 'camera',
+  'Event Mgmt': 'clipboard',
+  'Event Management': 'clipboard',
+};
 
 export default function AllocationsScreen() {
+  const { currentSeason } = useSeason();
+  const [events, setEvents] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      let alive = true;
+      const load = async () => {
+        try {
+          const uid = auth.currentUser?.uid;
+          if (!uid || !currentSeason) { if (alive) setLoading(false); return; }
+
+          // Published events this season whose allocations are live.
+          const snap = await getDocs(query(collection(db, 'events'), where('published', '==', true)));
+          const cutoff = Date.now() - 86400000; // include today
+          const evs = snap.docs
+            .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((e) => e.season === currentSeason && e.allocationsPublished === true)
+            .map((e) => ({ ...e, startsMs: e.startsAt?.toMillis ? e.startsAt.toMillis() : 0 }))
+            .filter((e) => !e.startsMs || e.startsMs >= cutoff)
+            .sort((a, b) => a.startsMs - b.startsMs);
+
+          // Pull this member's allocation + RSVP for each event.
+          const withMine = await Promise.all(
+            evs.map(async (e) => {
+              const [aSnap, rSnap] = await Promise.all([
+                getDoc(doc(db, 'events', e.id, 'allocations', uid)),
+                getDoc(doc(db, 'events', e.id, 'rsvps', uid)),
+              ]);
+              return {
+                id: e.id,
+                title: e.title || 'Event',
+                eventDate: e.eventDate || null,
+                startsMs: e.startsMs,
+                startTime: e.startTime || null,
+                reportingTime: e.reportingTime || null,
+                venue: e.venue || null,
+                allocation: aSnap.exists() ? aSnap.data().allocation : null,
+                going: rSnap.exists() && rSnap.data().status === 'going',
+              };
+            })
+          );
+          if (alive) { setEvents(withMine); setLoading(false); }
+        } catch (err) {
+          console.error('Failed to load allocations:', err);
+          if (alive) setLoading(false);
+        }
+      };
+      setLoading(true);
+      load();
+      return () => { alive = false; };
+    }, [currentSeason])
+  );
+
+  const allocatedCount = events.filter((e) => e.allocation).length;
+  const goingCount = events.filter((e) => e.going).length;
+
   return (
     <AppBackgroundWrapper>
       <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
@@ -29,52 +112,93 @@ export default function AllocationsScreen() {
             </View>
             <Text style={styles.heroTitle}>Allocations</Text>
             <Text style={styles.heroSub}>Your event assignments, all in one place</Text>
-            <View style={styles.soonPill}>
-              <Icon name="time-outline" size={13} color={colors.textOnPrimary} />
-              <Text style={styles.soonText}>Coming soon</Text>
-            </View>
           </LinearGradient>
         </Animatable.View>
 
-        {/* Preview of the summary card (values arrive with the live feature) */}
         <Animatable.View animation="fadeInUp" duration={500} delay={100} style={styles.summaryRow}>
           <View style={styles.summaryTile}>
-            <Icon name="checkmark-circle-outline" size={20} color={colors.primary} />
-            <Text style={styles.summarySoon}>Soon</Text>
-            <Text style={styles.summaryLabel}>Availability given</Text>
-          </View>
-          <View style={styles.summaryTile}>
             <Icon name="ribbon-outline" size={20} color={colors.primary} />
-            <Text style={styles.summarySoon}>Soon</Text>
+            <Text style={styles.summaryValue}>{allocatedCount}</Text>
             <Text style={styles.summaryLabel}>Events allocated</Text>
           </View>
+          <View style={styles.summaryTile}>
+            <Icon name="checkmark-circle-outline" size={20} color={colors.primary} />
+            <Text style={styles.summaryValue}>{goingCount}</Text>
+            <Text style={styles.summaryLabel}>You're going to</Text>
+          </View>
         </Animatable.View>
 
-        <Animatable.View animation="fadeInUp" duration={500} delay={200} style={styles.card}>
-          <Text style={styles.cardTitle}>What you'll see here</Text>
-          <Text style={styles.cardBody}>
-            Once the team finalises assignments, this tab will show every event you said you're
-            available for, along with the role you've been given for it.
-          </Text>
-
-          <Text style={styles.rolesLabel}>Possible roles</Text>
-          <View style={styles.chipRow}>
-            {ROLES.map((r) => (
-              <View key={r} style={styles.chip}>
-                <Text style={styles.chipText}>{r}</Text>
-              </View>
-            ))}
-          </View>
-
-          <View style={styles.noteBox}>
-            <Icon name="musical-notes-outline" size={16} color={colors.primary} style={{ marginTop: 1 }} />
-            <Text style={styles.noteText}>
-              If you're allocated to Dhol, your assigned dhol number will be shown on the event.
+        {loading ? (
+          <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
+        ) : events.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Icon name="clipboard-outline" size={28} color={colors.textMuted} />
+            <Text style={styles.emptyTitle}>No allocations yet</Text>
+            <Text style={styles.emptyBody}>
+              When the team publishes assignments for an upcoming event, your role will show up here.
             </Text>
           </View>
-        </Animatable.View>
+        ) : (
+          events.map((e, i) => {
+            const badge = dateBadge(e.startsMs, e.eventDate);
+            const icon = (e.allocation && ROLE_ICON[e.allocation]) || 'musical-notes';
+            return (
+              <Animatable.View
+                key={e.id}
+                animation="fadeInUp"
+                duration={400}
+                delay={120 + i * 60}
+                style={styles.card}
+              >
+                <View style={styles.cardTop}>
+                  <View style={styles.dateBadge}>
+                    <Text style={styles.dateMonth}>{badge.month}</Text>
+                    <Text style={styles.dateDay}>{badge.day}</Text>
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.cardTitle}>{e.title}</Text>
+                    {!!e.venue && (
+                      <View style={styles.metaRow}>
+                        <Icon name="location-outline" size={13} color={colors.textMuted} />
+                        <Text style={styles.metaText} numberOfLines={2}>{e.venue}</Text>
+                      </View>
+                    )}
+                  </View>
+                </View>
 
-        <Text style={styles.footer}>We'll let you know as soon as allocations go live.</Text>
+                {e.allocation ? (
+                  <View style={styles.roleChip}>
+                    <Icon name={icon} size={15} color={colors.textOnPrimary} />
+                    <Text style={styles.roleChipText}>{e.allocation}</Text>
+                  </View>
+                ) : (
+                  <View style={styles.noRolePill}>
+                    <Icon name="remove-circle-outline" size={14} color={colors.textMuted} />
+                    <Text style={styles.noRoleText}>Not allocated for this event</Text>
+                  </View>
+                )}
+
+                <View style={styles.divider} />
+                <View style={styles.timesRow}>
+                  <View style={styles.timeItem}>
+                    <Text style={styles.timeLabel}>Reporting</Text>
+                    <Text style={styles.timeValue}>{e.reportingTime || '—'}</Text>
+                  </View>
+                  <View style={styles.timeItem}>
+                    <Text style={styles.timeLabel}>Performance</Text>
+                    <Text style={styles.timeValue}>{e.startTime || '—'}</Text>
+                  </View>
+                  <View style={styles.timeItem}>
+                    <Text style={styles.timeLabel}>Your RSVP</Text>
+                    <Text style={[styles.timeValue, { color: e.going ? colors.successDark : colors.textMuted }]}>
+                      {e.going ? 'Going' : '—'}
+                    </Text>
+                  </View>
+                </View>
+              </Animatable.View>
+            );
+          })
+        )}
       </ScrollView>
     </AppBackgroundWrapper>
   );
@@ -82,90 +206,59 @@ export default function AllocationsScreen() {
 
 const styles = StyleSheet.create({
   container: { padding: spacing.xl, paddingBottom: spacing['4xl'] },
-  hero: {
-    borderRadius: radius['2xl'],
-    padding: spacing.xl,
-    marginBottom: spacing.lg,
-    ...shadows.primary,
-  },
+  hero: { borderRadius: radius['2xl'], padding: spacing.xl, marginBottom: spacing.lg, ...shadows.primary },
   heroIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: radius.md,
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.md,
+    width: 48, height: 48, borderRadius: radius.md, backgroundColor: 'rgba(255,255,255,0.22)',
+    alignItems: 'center', justifyContent: 'center', marginBottom: spacing.md,
   },
   heroTitle: { fontSize: 24, fontFamily: fonts.bold, color: colors.textOnPrimary },
   heroSub: { fontSize: 13, fontFamily: fonts.regular, color: '#E0E7FF', marginTop: 4 },
-  soonPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    alignSelf: 'flex-start',
-    backgroundColor: 'rgba(255,255,255,0.22)',
-    paddingVertical: 5,
-    paddingHorizontal: 12,
-    borderRadius: radius.full,
-    marginTop: spacing.md,
-  },
-  soonText: { color: colors.textOnPrimary, fontSize: 12, fontFamily: fonts.semibold },
   summaryRow: { flexDirection: 'row', gap: spacing.md, marginBottom: spacing.lg },
   summaryTile: {
-    flex: 1,
-    backgroundColor: colors.surface,
-    borderRadius: radius.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: spacing.lg,
-    alignItems: 'flex-start',
-    ...shadows.sm,
+    flex: 1, backgroundColor: colors.surface, borderRadius: radius.xl, borderWidth: 1,
+    borderColor: colors.border, padding: spacing.lg, alignItems: 'flex-start', ...shadows.sm,
   },
-  summarySoon: { fontSize: 20, fontFamily: fonts.bold, color: colors.textMuted, marginTop: spacing.sm },
+  summaryValue: { fontSize: 22, fontFamily: fonts.bold, color: colors.text, marginTop: spacing.sm },
   summaryLabel: { fontSize: 12.5, fontFamily: fonts.medium, color: colors.textMuted, marginTop: 2 },
+  center: { paddingVertical: spacing['3xl'], alignItems: 'center' },
+  emptyCard: {
+    backgroundColor: colors.surface, borderRadius: radius['2xl'], padding: spacing.xl,
+    borderWidth: 1, borderColor: colors.border, alignItems: 'center', ...shadows.md,
+  },
+  emptyTitle: { fontSize: 16, fontFamily: fonts.semibold, color: colors.text, marginTop: spacing.md },
+  emptyBody: { fontSize: 13, lineHeight: 19, fontFamily: fonts.regular, color: colors.textSecondary, textAlign: 'center', marginTop: 6 },
   card: {
-    backgroundColor: colors.surface,
-    borderRadius: radius['2xl'],
-    padding: spacing.xl,
-    borderWidth: 1,
-    borderColor: colors.border,
-    ...shadows.md,
+    backgroundColor: colors.surface, borderRadius: radius['2xl'], padding: spacing.lg,
+    borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md, ...shadows.md,
   },
-  cardTitle: { fontSize: 16, fontFamily: fonts.semibold, color: colors.text, marginBottom: spacing.sm },
-  cardBody: { fontSize: 13.5, lineHeight: 20, fontFamily: fonts.regular, color: colors.textSecondary },
-  rolesLabel: {
-    fontSize: 12,
-    fontFamily: fonts.medium,
-    color: colors.textMuted,
-    textTransform: 'uppercase',
-    letterSpacing: 0.4,
-    marginTop: spacing.lg,
-    marginBottom: spacing.sm,
+  cardTop: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
+  dateBadge: {
+    width: 52, borderRadius: radius.lg, backgroundColor: colors.primarySoft,
+    alignItems: 'center', paddingVertical: spacing.sm,
   },
-  chipRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  chip: {
-    paddingVertical: 7,
-    paddingHorizontal: spacing.md,
-    borderRadius: radius.full,
-    backgroundColor: colors.primarySoft,
+  dateMonth: { fontSize: 11, fontFamily: fonts.bold, color: colors.primaryDark, letterSpacing: 0.5 },
+  dateDay: { fontSize: 20, fontFamily: fonts.bold, color: colors.primaryDark, lineHeight: 24 },
+  cardTitle: { fontSize: 16, fontFamily: fonts.semibold, color: colors.text },
+  metaRow: { flexDirection: 'row', alignItems: 'center', gap: 5, marginTop: 4 },
+  metaText: { flex: 1, fontSize: 12.5, fontFamily: fonts.regular, color: colors.textMuted },
+  roleChip: {
+    flexDirection: 'row', alignItems: 'center', gap: 7, alignSelf: 'flex-start',
+    backgroundColor: colors.primary, paddingVertical: 7, paddingHorizontal: 14,
+    borderRadius: radius.full, marginTop: spacing.md,
   },
-  chipText: { fontSize: 13, fontFamily: fonts.semibold, color: colors.primaryDark },
-  noteBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: spacing.sm,
-    backgroundColor: colors.primarySoft,
-    borderRadius: radius.md,
-    padding: spacing.md,
-    marginTop: spacing.lg,
+  roleChipText: { color: colors.textOnPrimary, fontSize: 14, fontFamily: fonts.bold },
+  noRolePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
+    backgroundColor: colors.surfaceAlt || '#F1F5F9', paddingVertical: 6, paddingHorizontal: 12,
+    borderRadius: radius.full, marginTop: spacing.md,
   },
-  noteText: { flex: 1, fontSize: 12.5, lineHeight: 18, fontFamily: fonts.regular, color: colors.primaryDark },
-  footer: {
-    textAlign: 'center',
-    fontSize: 12.5,
-    fontFamily: fonts.regular,
-    color: colors.textMuted,
-    marginTop: spacing.xl,
+  noRoleText: { color: colors.textMuted, fontSize: 12.5, fontFamily: fonts.medium },
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
+  timesRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  timeItem: { alignItems: 'flex-start' },
+  timeLabel: {
+    fontSize: 11, fontFamily: fonts.medium, color: colors.textMuted,
+    textTransform: 'uppercase', letterSpacing: 0.3,
   },
+  timeValue: { fontSize: 14, fontFamily: fonts.semibold, color: colors.text, marginTop: 3 },
 });

@@ -91,6 +91,13 @@ service cloud.firestore {
         allow read: if isSignedIn();
         allow write: if isSelf(uid) || isAdmin();
       }
+      // Per-event role allocations. Admin-written (import/allocator); readable by
+      // any signed-in user. The staged reveal (allocationsPublished) is enforced
+      // in the app UI, same way the "going" list is hidden from students.
+      match /allocations/{uid} {
+        allow read: if isSignedIn();
+        allow write: if isAdmin();
+      }
     }
 
     // ---- Season / config (everyone reads; admin writes) ----
