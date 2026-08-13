@@ -284,6 +284,24 @@ export default function EventsScreen() {
     }
   };
 
+  // ---- Reveal-allocations toggle (admin) — gates the member Allocations tab ----
+  const handleToggleAllocations = async (event) => {
+    const next = !event.allocationsPublished;
+    const flip = (e) => (e && e.id === event.id ? { ...e, allocationsPublished: next } : e);
+    setEvents((prev) => prev.map(flip));
+    setSelectedEvent((prev) => flip(prev));
+    try {
+      await updateDoc(doc(db, 'events', event.id), { allocationsPublished: next });
+      showBanner('success', next ? 'Allocations revealed to members.' : 'Allocations hidden from members.');
+    } catch (err) {
+      console.error('Allocations toggle failed:', err);
+      showBanner('error', 'Could not update allocation visibility.');
+      const revert = (e) => (e && e.id === event.id ? { ...e, allocationsPublished: !next } : e);
+      setEvents((prev) => prev.map(revert));
+      setSelectedEvent((prev) => revert(prev));
+    }
+  };
+
   // ---- Delete event (admin) — cascades the RSVP subcollection ----
   const handleDelete = (event) => {
     Alert.alert(
@@ -637,6 +655,22 @@ export default function EventsScreen() {
                 />
                 <Text style={[styles.publishText, { color: ev.published ? colors.successDark : colors.textMuted }]}>
                   {ev.published ? 'Published, visible to students' : 'Draft, tap to publish'}
+                </Text>
+              </Pressable>
+            )}
+
+            {role === 'admin' && (
+              <Pressable
+                onPress={() => handleToggleAllocations(ev)}
+                style={[styles.publishBtnLg, ev.allocationsPublished ? styles.publishOn : styles.publishOff]}
+              >
+                <Icon
+                  name={ev.allocationsPublished ? 'clipboard' : 'clipboard-outline'}
+                  size={16}
+                  color={ev.allocationsPublished ? colors.successDark : colors.textMuted}
+                />
+                <Text style={[styles.publishText, { color: ev.allocationsPublished ? colors.successDark : colors.textMuted }]}>
+                  {ev.allocationsPublished ? 'Allocations revealed to members' : 'Allocations hidden, tap to reveal'}
                 </Text>
               </Pressable>
             )}
