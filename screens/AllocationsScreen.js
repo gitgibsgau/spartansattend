@@ -93,6 +93,7 @@ export default function AllocationsScreen() {
                 reportingTime: e.reportingTime || null,
                 venue: e.venue || null,
                 allocation: aSnap.exists() ? aSnap.data().allocation : null,
+                dholNumber: aSnap.exists() ? (aSnap.data().dholNumber || null) : null,
                 going: rSnap.exists() && rSnap.data().status === 'going',
               };
             })
@@ -185,7 +186,9 @@ export default function AllocationsScreen() {
                 {e.allocation ? (
                   <View style={[styles.roleChip, { backgroundColor: rs.bg }]}>
                     <Icon name={icon} size={15} color={rs.fg} />
-                    <Text style={[styles.roleChipText, { color: rs.fg }]}>{e.allocation}</Text>
+                    <Text style={[styles.roleChipText, { color: rs.fg }]}>
+                      {e.allocation}{e.dholNumber ? `  ·  #${e.dholNumber}` : ''}
+                    </Text>
                   </View>
                 ) : (
                   <View style={styles.noRolePill}>
