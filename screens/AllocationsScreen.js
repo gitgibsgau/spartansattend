@@ -67,23 +67,24 @@ export default function AllocationsScreen() {
           const uid = auth.currentUser?.uid;
           if (!uid || !currentSeason) { if (alive) setLoading(false); return; }
 
-          // Published events this season whose allocations are live.
+          // Published events this season whose allocations are live (past + upcoming).
           const snap = await getDocs(query(collection(db, 'events'), where('published', '==', true)));
-          const cutoff = Date.now() - 86400000; // include today
+          const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+          const todayMs = startOfToday.getTime();
           const evs = snap.docs
             .map((d) => ({ id: d.id, ...d.data() }))
             .filter((e) => e.season === currentSeason && e.allocationsPublished === true)
-            .map((e) => ({ ...e, startsMs: e.startsAt?.toMillis ? e.startsAt.toMillis() : 0 }))
-            .filter((e) => !e.startsMs || e.startsMs >= cutoff)
-            .sort((a, b) => a.startsMs - b.startsMs);
+            .map((e) => ({ ...e, startsMs: e.startsAt?.toMillis ? e.startsAt.toMillis() : 0 }));
 
-          // Pull this member's allocation + RSVP for each event.
-          const withMine = await Promise.all(
+          // Keep only events this member is actually allocated to; an event is
+          // "done" once its calendar day has passed.
+          const mine = (await Promise.all(
             evs.map(async (e) => {
               const [aSnap, rSnap] = await Promise.all([
                 getDoc(doc(db, 'events', e.id, 'allocations', uid)),
                 getDoc(doc(db, 'events', e.id, 'rsvps', uid)),
               ]);
+              if (!aSnap.exists()) return null;
               return {
                 id: e.id,
                 title: e.title || 'Event',
@@ -92,13 +93,18 @@ export default function AllocationsScreen() {
                 startTime: e.startTime || null,
                 reportingTime: e.reportingTime || null,
                 venue: e.venue || null,
-                allocation: aSnap.exists() ? aSnap.data().allocation : null,
-                dholNumber: aSnap.exists() ? (aSnap.data().dholNumber || null) : null,
+                allocation: aSnap.data().allocation || null,
+                dholNumber: aSnap.data().dholNumber || null,
                 going: rSnap.exists() && rSnap.data().status === 'going',
+                done: !!e.startsMs && e.startsMs < todayMs,
               };
             })
+          )).filter(Boolean);
+          // Upcoming first (soonest first), then completed (most recent first).
+          mine.sort((a, b) =>
+            a.done !== b.done ? (a.done ? 1 : -1) : (a.done ? b.startsMs - a.startsMs : a.startsMs - b.startsMs)
           );
-          if (alive) { setEvents(withMine); setLoading(false); }
+          if (alive) { setEvents(mine); setLoading(false); }
         } catch (err) {
           console.error('Failed to load allocations:', err);
           if (alive) setLoading(false);
@@ -110,8 +116,8 @@ export default function AllocationsScreen() {
     }, [currentSeason])
   );
 
-  const allocatedCount = events.filter((e) => e.allocation).length;
-  const goingCount = events.filter((e) => e.going).length;
+  const allocatedCount = events.length;
+  const completedCount = events.filter((e) => e.done).length;
 
   return (
     <AppBackgroundWrapper>
@@ -138,9 +144,9 @@ export default function AllocationsScreen() {
             <Text style={styles.summaryLabel}>Events allocated</Text>
           </View>
           <View style={styles.summaryTile}>
-            <Icon name="checkmark-circle-outline" size={20} color={colors.primary} />
-            <Text style={styles.summaryValue}>{goingCount}</Text>
-            <Text style={styles.summaryLabel}>You're going to</Text>
+            <Icon name="checkmark-done-circle-outline" size={20} color={colors.primary} />
+            <Text style={styles.summaryValue}>{completedCount}</Text>
+            <Text style={styles.summaryLabel}>Completed</Text>
           </View>
         </Animatable.View>
 
@@ -165,7 +171,7 @@ export default function AllocationsScreen() {
                 animation="fadeInUp"
                 duration={400}
                 delay={120 + i * 60}
-                style={styles.card}
+                style={[styles.card, e.done && styles.cardDone]}
               >
                 <View style={styles.cardTop}>
                   <View style={styles.dateBadge}>
@@ -181,6 +187,16 @@ export default function AllocationsScreen() {
                       </View>
                     )}
                   </View>
+                  <View style={e.done ? styles.donePill : styles.upcomingPill}>
+                    <Icon
+                      name={e.done ? 'checkmark-done' : 'time-outline'}
+                      size={12}
+                      color={e.done ? colors.textMuted : colors.primaryDark}
+                    />
+                    <Text style={e.done ? styles.donePillText : styles.upcomingPillText}>
+                      {e.done ? 'Done' : 'Upcoming'}
+                    </Text>
+                  </View>
                 </View>
 
                 {e.allocation ? (
@@ -190,12 +206,7 @@ export default function AllocationsScreen() {
                       {e.allocation}{e.dholNumber ? `  ·  #${e.dholNumber}` : ''}
                     </Text>
                   </View>
-                ) : (
-                  <View style={styles.noRolePill}>
-                    <Icon name="remove-circle-outline" size={14} color={colors.textMuted} />
-                    <Text style={styles.noRoleText}>Not allocated for this event</Text>
-                  </View>
-                )}
+                ) : null}
 
                 <View style={styles.divider} />
                 <View style={styles.timesRow}>
@@ -250,6 +261,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.surface, borderRadius: radius['2xl'], padding: spacing.lg,
     borderWidth: 1, borderColor: colors.border, marginBottom: spacing.md, ...shadows.md,
   },
+  cardDone: { opacity: 0.72 },
   cardTop: { flexDirection: 'row', gap: spacing.md, alignItems: 'flex-start' },
   dateBadge: {
     width: 52, borderRadius: radius.lg, backgroundColor: colors.primarySoft,
@@ -266,12 +278,16 @@ const styles = StyleSheet.create({
     borderRadius: radius.full, marginTop: spacing.md,
   },
   roleChipText: { fontSize: 14, fontFamily: fonts.bold },
-  noRolePill: {
-    flexDirection: 'row', alignItems: 'center', gap: 6, alignSelf: 'flex-start',
-    backgroundColor: colors.surfaceAlt || '#F1F5F9', paddingVertical: 6, paddingHorizontal: 12,
-    borderRadius: radius.full, marginTop: spacing.md,
+  donePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: '#F1F5F9', paddingVertical: 4, paddingHorizontal: 9, borderRadius: radius.full,
   },
-  noRoleText: { color: colors.textMuted, fontSize: 12.5, fontFamily: fonts.medium },
+  donePillText: { color: colors.textMuted, fontSize: 11.5, fontFamily: fonts.semibold },
+  upcomingPill: {
+    flexDirection: 'row', alignItems: 'center', gap: 4,
+    backgroundColor: colors.primarySoft, paddingVertical: 4, paddingHorizontal: 9, borderRadius: radius.full,
+  },
+  upcomingPillText: { color: colors.primaryDark, fontSize: 11.5, fontFamily: fonts.semibold },
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.md },
   timesRow: { flexDirection: 'row', justifyContent: 'space-between' },
   timeItem: { alignItems: 'flex-start' },
