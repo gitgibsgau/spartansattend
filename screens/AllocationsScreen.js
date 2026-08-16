@@ -68,13 +68,15 @@ export default function AllocationsScreen() {
           const uid = auth.currentUser?.uid;
           if (!uid || !currentSeason) { if (alive) setLoading(false); return; }
 
-          // All this-season events (for the RSVP count) + this member's RSVP and
-          // revealed allocation on each.
-          const snap = await getDocs(query(collection(db, 'events'), where('season', '==', currentSeason)));
+          // Published events this season. The RSVP-going count is scoped to
+          // published events, so pre-season/test events (kept unpublished) don't
+          // inflate it; real events stay published (they show as "Done" here).
+          const snap = await getDocs(query(collection(db, 'events'), where('published', '==', true)));
           const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
           const todayMs = startOfToday.getTime();
           const seasonEvents = snap.docs
             .map((d) => ({ id: d.id, ...d.data() }))
+            .filter((e) => e.season === currentSeason)
             .map((e) => ({ ...e, startsMs: e.startsAt?.toMillis ? e.startsAt.toMillis() : 0 }));
 
           const per = await Promise.all(

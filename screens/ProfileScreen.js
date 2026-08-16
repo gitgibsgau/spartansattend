@@ -170,7 +170,9 @@ export default function ProfileScreen({ navigation }) {
                         await setDoc(userRef, { confettiCombinedShown: true }, { merge: true });
                     }
 
-                    // Count events this student has RSVP'd "Going" to this season.
+                    // Count PUBLISHED events this student has RSVP'd "Going" to this
+                    // season. Scoped to published so pre-season/test events (kept
+                    // unpublished) don't inflate the count.
                     let goingEventsCount = 0;
                     try {
                         const evSnap = await getDocs(
@@ -178,6 +180,7 @@ export default function ProfileScreen({ navigation }) {
                         );
                         const rsvpChecks = await Promise.all(
                             evSnap.docs.map(async (evDoc) => {
+                                if (evDoc.data().published !== true) return false;
                                 const rsvpSnap = await getDoc(doc(db, 'events', evDoc.id, 'rsvps', uid));
                                 return rsvpSnap.exists() && rsvpSnap.data().status === 'going';
                             })
