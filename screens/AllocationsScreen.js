@@ -57,6 +57,7 @@ const ROLE_STYLE = {
 export default function AllocationsScreen() {
   const { currentSeason } = useSeason();
   const [events, setEvents] = useState([]);
+  const [rsvpGoing, setRsvpGoing] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useFocusEffect(
@@ -67,24 +68,22 @@ export default function AllocationsScreen() {
           const uid = auth.currentUser?.uid;
           if (!uid || !currentSeason) { if (alive) setLoading(false); return; }
 
-          // Published events this season whose allocations are live (past + upcoming).
-          const snap = await getDocs(query(collection(db, 'events'), where('published', '==', true)));
+          // All this-season events (for the RSVP count) + this member's RSVP and
+          // revealed allocation on each.
+          const snap = await getDocs(query(collection(db, 'events'), where('season', '==', currentSeason)));
           const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
           const todayMs = startOfToday.getTime();
-          const evs = snap.docs
+          const seasonEvents = snap.docs
             .map((d) => ({ id: d.id, ...d.data() }))
-            .filter((e) => e.season === currentSeason && e.allocationsPublished === true)
             .map((e) => ({ ...e, startsMs: e.startsAt?.toMillis ? e.startsAt.toMillis() : 0 }));
 
-          // Keep only events this member is actually allocated to; an event is
-          // "done" once its calendar day has passed.
-          const mine = (await Promise.all(
-            evs.map(async (e) => {
+          const per = await Promise.all(
+            seasonEvents.map(async (e) => {
               const [aSnap, rSnap] = await Promise.all([
                 getDoc(doc(db, 'events', e.id, 'allocations', uid)),
                 getDoc(doc(db, 'events', e.id, 'rsvps', uid)),
               ]);
-              if (!aSnap.exists()) return null;
+              const revealed = e.allocationsPublished === true && aSnap.exists();
               return {
                 id: e.id,
                 title: e.title || 'Event',
@@ -93,18 +92,23 @@ export default function AllocationsScreen() {
                 startTime: e.startTime || null,
                 reportingTime: e.reportingTime || null,
                 venue: e.venue || null,
-                allocation: aSnap.data().allocation || null,
-                dholNumber: aSnap.data().dholNumber || null,
+                allocation: revealed ? (aSnap.data().allocation || null) : null,
+                dholNumber: revealed ? (aSnap.data().dholNumber || null) : null,
                 going: rSnap.exists() && rSnap.data().status === 'going',
                 done: !!e.startsMs && e.startsMs < todayMs,
               };
             })
-          )).filter(Boolean);
-          // Upcoming first (soonest first), then completed (most recent first).
-          mine.sort((a, b) =>
+          );
+
+          const goingCount = per.filter((e) => e.going).length;
+          // Cards = events this member is allocated to (past + upcoming); an event
+          // is "done" once its calendar day has passed. Upcoming first, then
+          // completed (most recent first).
+          const allocated = per.filter((e) => e.allocation);
+          allocated.sort((a, b) =>
             a.done !== b.done ? (a.done ? 1 : -1) : (a.done ? b.startsMs - a.startsMs : a.startsMs - b.startsMs)
           );
-          if (alive) { setEvents(mine); setLoading(false); }
+          if (alive) { setEvents(allocated); setRsvpGoing(goingCount); setLoading(false); }
         } catch (err) {
           console.error('Failed to load allocations:', err);
           if (alive) setLoading(false);
@@ -117,7 +121,10 @@ export default function AllocationsScreen() {
   );
 
   const allocatedCount = events.length;
-  const completedCount = events.filter((e) => e.done).length;
+  // Tally this member's roles across their allocated events for the breakdown row.
+  const ROLE_ORDER = ['Dhol', 'Dhwaj', 'Main Dhwaj', 'Tasha', 'Toll', 'Zanj', 'Media', 'Event Mgmt', 'Event Management'];
+  const roleCounts = events.reduce((m, e) => { if (e.allocation) m[e.allocation] = (m[e.allocation] || 0) + 1; return m; }, {});
+  const roleBreakdown = ROLE_ORDER.filter((r) => roleCounts[r]).map((r) => ({ role: r, count: roleCounts[r] }));
 
   return (
     <AppBackgroundWrapper>
@@ -139,16 +146,29 @@ export default function AllocationsScreen() {
 
         <Animatable.View animation="fadeInUp" duration={500} delay={100} style={styles.summaryRow}>
           <View style={styles.summaryTile}>
-            <Icon name="ribbon-outline" size={20} color={colors.primary} />
-            <Text style={styles.summaryValue}>{allocatedCount}</Text>
-            <Text style={styles.summaryLabel}>Events allocated</Text>
+            <Icon name="checkmark-circle-outline" size={20} color={colors.primary} />
+            <Text style={styles.summaryValue}>{rsvpGoing}</Text>
+            <Text style={styles.summaryLabel}>RSVP'd going</Text>
           </View>
           <View style={styles.summaryTile}>
-            <Icon name="checkmark-done-circle-outline" size={20} color={colors.primary} />
-            <Text style={styles.summaryValue}>{completedCount}</Text>
-            <Text style={styles.summaryLabel}>Completed</Text>
+            <Icon name="ribbon-outline" size={20} color={colors.primary} />
+            <Text style={styles.summaryValue}>{allocatedCount}</Text>
+            <Text style={styles.summaryLabel}>Allocated</Text>
           </View>
         </Animatable.View>
+
+        {roleBreakdown.length > 0 && (
+          <Animatable.View animation="fadeInUp" duration={500} delay={150} style={styles.breakdownRow}>
+            {roleBreakdown.map((r) => {
+              const rs = ROLE_STYLE[r.role] || ROLE_STYLE.default;
+              return (
+                <View key={r.role} style={[styles.breakdownChip, { backgroundColor: rs.bg }]}>
+                  <Text style={[styles.breakdownText, { color: rs.fg }]}>{r.role} · {r.count}</Text>
+                </View>
+              );
+            })}
+          </Animatable.View>
+        )}
 
         {loading ? (
           <View style={styles.center}><ActivityIndicator color={colors.primary} /></View>
@@ -250,6 +270,9 @@ const styles = StyleSheet.create({
   },
   summaryValue: { fontSize: 22, fontFamily: fonts.bold, color: colors.text, marginTop: spacing.sm },
   summaryLabel: { fontSize: 12.5, fontFamily: fonts.medium, color: colors.textMuted, marginTop: 2 },
+  breakdownRow: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm, marginBottom: spacing.lg },
+  breakdownChip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: radius.full },
+  breakdownText: { fontSize: 13, fontFamily: fonts.semibold },
   center: { paddingVertical: spacing['3xl'], alignItems: 'center' },
   emptyCard: {
     backgroundColor: colors.surface, borderRadius: radius['2xl'], padding: spacing.xl,
