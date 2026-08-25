@@ -91,15 +91,17 @@ export default function AllocationsScreen() {
               // or the event's day has passed.
               const rsvpClosed = e.rsvpDeadline?.toMillis ? Date.now() > e.rsvpDeadline.toMillis() : false;
               const title = e.title || 'Event';
+              const real = e.realTitle || title; // title is "Event N" for tagged events
               return {
                 id: e.id,
                 title,
-                displayName: (e.eventTagLabel && !(done || rsvpClosed)) ? e.eventTagLabel : title,
+                displayName: (e.eventTagLabel && !(done || rsvpClosed)) ? e.eventTagLabel : real,
                 eventDate: e.eventDate || null,
                 startsMs: e.startsMs,
                 startTime: e.startTime || null,
                 reportingTime: e.reportingTime || null,
-                venue: e.venue || null,
+                // City (venue) until reveal, then full address (realVenue); legacy = venue.
+                venue: e.realVenue ? ((done || rsvpClosed) ? e.realVenue : e.venue) : (e.venue || null),
                 allocation: allocRevealed ? (aSnap.data().allocation || null) : null,
                 dholNumber: allocRevealed ? (aSnap.data().dholNumber || null) : null,
                 going: rSnap.exists() && rSnap.data().status === 'going',

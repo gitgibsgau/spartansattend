@@ -84,9 +84,17 @@ const rsvpOpen = (ev) => !ev.rsvpDeadlineMs || Date.now() <= ev.rsvpDeadlineMs;
 // the tag) so they can manage it.
 const titleRevealed = (ev) => (!!ev.startsMs && ev.startsMs < Date.now()) || !rsvpOpen(ev);
 const displayTitle = (ev, role) => {
-  if (!ev.eventTagLabel) return ev.title;
-  if (role === 'admin') return `${ev.eventTagLabel} · ${ev.title}`;
-  return titleRevealed(ev) ? ev.title : ev.eventTagLabel;
+  if (!ev.eventTagLabel) return ev.title;      // untagged: title IS the real name
+  const real = ev.realTitle || ev.title;       // tagged: title is "Event N", real name in realTitle
+  if (role === 'admin') return `${ev.eventTagLabel} · ${real}`;
+  return titleRevealed(ev) ? real : ev.eventTagLabel;
+};
+// Venue: members see the city (stored in `venue`) until reveal; then the full
+// address (`realVenue`). Admins always get the full address.
+const displayVenue = (ev, role) => {
+  if (!ev.realVenue) return ev.venue;          // untagged/legacy: venue is the full address
+  if (role === 'admin') return ev.realVenue;
+  return titleRevealed(ev) ? ev.realVenue : ev.venue;
 };
 
 // Roles an event can need filled, in display order. Media is filled manually by
@@ -549,7 +557,7 @@ export default function EventsScreen() {
               {!!item.venue && (
                 <View style={styles.metaRow}>
                   <Icon name="location-outline" size={14} color={colors.textMuted} />
-                  <Text style={styles.metaText} numberOfLines={1}>{item.venue}</Text>
+                  <Text style={styles.metaText} numberOfLines={1}>{displayVenue(item, role)}</Text>
                 </View>
               )}
             </View>
@@ -700,7 +708,7 @@ export default function EventsScreen() {
             {!!ev.venue && (
               <View style={styles.detailMeta}>
                 <Icon name="location-outline" size={16} color={colors.primary} />
-                <Text style={styles.detailMetaText}>{ev.venue}</Text>
+                <Text style={styles.detailMetaText}>{displayVenue(ev, role)}</Text>
               </View>
             )}
             {role === 'admin' && (
