@@ -85,19 +85,25 @@ export default function AllocationsScreen() {
                 getDoc(doc(db, 'events', e.id, 'allocations', uid)),
                 getDoc(doc(db, 'events', e.id, 'rsvps', uid)),
               ]);
-              const revealed = e.allocationsPublished === true && aSnap.exists();
+              const allocRevealed = e.allocationsPublished === true && aSnap.exists();
+              const done = !!e.startsMs && e.startsMs < todayMs;
+              // Real title stays hidden behind the "Event N" tag until RSVP closes
+              // or the event's day has passed.
+              const rsvpClosed = e.rsvpDeadline?.toMillis ? Date.now() > e.rsvpDeadline.toMillis() : false;
+              const title = e.title || 'Event';
               return {
                 id: e.id,
-                title: e.title || 'Event',
+                title,
+                displayName: (e.eventTagLabel && !(done || rsvpClosed)) ? e.eventTagLabel : title,
                 eventDate: e.eventDate || null,
                 startsMs: e.startsMs,
                 startTime: e.startTime || null,
                 reportingTime: e.reportingTime || null,
                 venue: e.venue || null,
-                allocation: revealed ? (aSnap.data().allocation || null) : null,
-                dholNumber: revealed ? (aSnap.data().dholNumber || null) : null,
+                allocation: allocRevealed ? (aSnap.data().allocation || null) : null,
+                dholNumber: allocRevealed ? (aSnap.data().dholNumber || null) : null,
                 going: rSnap.exists() && rSnap.data().status === 'going',
-                done: !!e.startsMs && e.startsMs < todayMs,
+                done,
               };
             })
           );
@@ -201,7 +207,7 @@ export default function AllocationsScreen() {
                     <Text style={styles.dateDay}>{badge.day}</Text>
                   </View>
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.cardTitle}>{e.title}</Text>
+                    <Text style={styles.cardTitle}>{e.displayName}</Text>
                     {!!e.venue && (
                       <View style={styles.metaRow}>
                         <Icon name="location-outline" size={13} color={colors.textMuted} />

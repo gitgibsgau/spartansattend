@@ -79,6 +79,16 @@ const fmtDeadline = (ms) =>
 // RSVP is open until the (optional) per-event deadline passes.
 const rsvpOpen = (ev) => !ev.rsvpDeadlineMs || Date.now() <= ev.rsvpDeadlineMs;
 
+// A tagged event hides its real title behind "Event N" for members until RSVP
+// closes or the event passes. Admins always see the real title (prefixed with
+// the tag) so they can manage it.
+const titleRevealed = (ev) => (!!ev.startsMs && ev.startsMs < Date.now()) || !rsvpOpen(ev);
+const displayTitle = (ev, role) => {
+  if (!ev.eventTagLabel) return ev.title;
+  if (role === 'admin') return `${ev.eventTagLabel} · ${ev.title}`;
+  return titleRevealed(ev) ? ev.title : ev.eventTagLabel;
+};
+
 // Roles an event can need filled, in display order. Media is filled manually by
 // an admin (not auto-allocated); the rest are auto-allocated by role eligibility.
 const ALLOC_ROLES = [
@@ -230,8 +240,8 @@ export default function EventsScreen() {
     Alert.alert(
       'Confirm RSVP',
       newStatus === 'going'
-        ? `Mark yourself as Going to "${event.title}"?\n\nThis can't be changed later.`
-        : `Mark yourself as Can't make it for "${event.title}"?\n\nThis can't be changed later.`,
+        ? `Mark yourself as Going to "${displayTitle(event, role)}"?\n\nThis can't be changed later.`
+        : `Mark yourself as Can't make it for "${displayTitle(event, role)}"?\n\nThis can't be changed later.`,
       [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Confirm', onPress: () => commitRsvp(event, newStatus) },
@@ -523,7 +533,7 @@ export default function EventsScreen() {
             </LinearGradient>
 
             <View style={styles.headerMain}>
-              <Text style={styles.eventTitle} numberOfLines={2}>{item.title}</Text>
+              <Text style={styles.eventTitle} numberOfLines={2}>{displayTitle(item, role)}</Text>
               <View style={styles.metaRow}>
                 <Icon name="time-outline" size={14} color={colors.textMuted} />
                 <Text style={styles.metaText}>
@@ -637,7 +647,7 @@ export default function EventsScreen() {
         <View style={styles.modalBackdrop}>
           <View style={[styles.modalCard, { paddingBottom: insets.bottom + spacing.xl }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle} numberOfLines={2}>{ev.title}</Text>
+              <Text style={styles.modalTitle} numberOfLines={2}>{displayTitle(ev, role)}</Text>
               <TouchableOpacity onPress={() => setSelectedEvent(null)}>
                 <Icon name="close" size={24} color={colors.textMuted} />
               </TouchableOpacity>
