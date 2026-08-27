@@ -156,10 +156,15 @@ export default function ProfileScreen({ navigation }) {
                         maintenance: finalMaintenance,
                     } = computeFinalAverage(finalData);
 
-                    // Weighted (40% Mid + 60% Final) — treat missing side as 0
-                    const firstComponent = typeof firstAverage === 'number' ? firstAverage : 0;
-                    const finalComponent = typeof finalAverage === 'number' ? finalAverage : 0;
-                    const weightedAverage = firstComponent * 0.4 + finalComponent * 0.6;
+                    // Weighted score. Blend 40% Mid / 60% Final only when BOTH exist;
+                    // if only one parikshan was recorded, use it at full weight. (Zeroing
+                    // the missing side would unfairly deflate one-sided members and tasha
+                    // players who had no final.)
+                    const hasMidAvg = typeof firstAverage === 'number';
+                    const hasFinalAvg = typeof finalAverage === 'number';
+                    const weightedAverage = (hasMidAvg && hasFinalAvg)
+                        ? firstAverage * 0.4 + finalAverage * 0.6
+                        : (hasFinalAvg ? finalAverage : (hasMidAvg ? firstAverage : null));
 
                     // Confetti the first time any released stage has a score to show.
                     const anyExists = typeof firstAverage === 'number' || typeof finalAverage === 'number';
@@ -269,11 +274,25 @@ export default function ProfileScreen({ navigation }) {
 
     let scoreView = null;
     if (finalReleased && (hasFirst || hasFinal)) {
-        scoreView = {
-            label: 'Parikshan Score (Weighted: 40% Mid • 60% Final)',
-            value: user.weightedAverage,
-            note: 'Missing either parikshan is counted as 0 for weighting.',
-        };
+        if (hasFirst && hasFinal) {
+            scoreView = {
+                label: 'Parikshan Score (Weighted: 40% Mid • 60% Final)',
+                value: user.weightedAverage,
+                note: 'Weighted average of your Mid-Season and Final scores.',
+            };
+        } else if (hasFinal) {
+            scoreView = {
+                label: 'Final Parikshan Score',
+                value: user.averageFinal,
+                note: 'Shown from your Final parikshan (no Mid-Season score on record).',
+            };
+        } else {
+            scoreView = {
+                label: 'Mid-Season Parikshan Score',
+                value: user.averageFirst,
+                note: 'Shown from your Mid-Season parikshan (no Final score on record).',
+            };
+        }
     } else if (midReleased && hasFirst) {
         scoreView = {
             label: 'Mid-Season Parikshan Score',
@@ -626,17 +645,15 @@ export default function ProfileScreen({ navigation }) {
 
                                         <View style={{ height: 12 }} />
 
-                                        <Text style={[styles.modalSectionTitle]}>Overall (Weighted)</Text>
+                                        <Text style={[styles.modalSectionTitle]}>Overall</Text>
                                         <Text style={[styles.modalItem, styles.modalEm]}>
-                                            Weighted Avg (40/60): {formatScore(user.weightedAverage, 1)} / 10
+                                            Score: {formatScore(user.weightedAverage, 1)} / 10
                                         </Text>
-                                        <Text style={[styles.modalItem]}>{`(Mid contributes ${formatScore(
-                                            typeof user.averageFirst === 'number' ? user.averageFirst * 0.4 : 0,
-                                            1
-                                        )}, Final contributes ${formatScore(
-                                            typeof user.averageFinal === 'number' ? user.averageFinal * 0.6 : 0,
-                                            1
-                                        )})`}</Text>
+                                        {hasFirst && hasFinal ? (
+                                            <Text style={[styles.modalItem]}>{`Weighted 40/60 — Mid contributes ${formatScore(user.averageFirst * 0.4, 1)}, Final contributes ${formatScore(user.averageFinal * 0.6, 1)}`}</Text>
+                                        ) : (
+                                            <Text style={[styles.modalItem]}>{`Based on your ${hasFinal ? 'Final' : 'Mid-Season'} score alone (the other wasn't recorded).`}</Text>
+                                        )}
                                     </>
                                 )}
 
