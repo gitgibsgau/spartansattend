@@ -80,13 +80,16 @@ service cloud.firestore {
     //     allow read: if isAdmin() || resource.data.published == true;
     match /events/{eventId} {
       allow read: if isSignedIn();
-      // Admins manage events. A signed-in student may bump ONLY goingCount, and
-      // only by +1, when they RSVP "Going" — everything else is admin-only.
+      // Admins manage events. A signed-in student may adjust ONLY goingCount, and
+      // only by +1 or -1 (RSVP "Going" join/leave when they change their answer);
+      // never below 0. Everything else is admin-only.
       allow create, delete: if isAdmin();
       allow update: if isAdmin()
         || (isSignedIn()
             && onlyChanged(['goingCount'])
-            && request.resource.data.goingCount == resource.data.get('goingCount', 0) + 1);
+            && request.resource.data.goingCount >= 0
+            && (request.resource.data.goingCount == resource.data.get('goingCount', 0) + 1
+                || request.resource.data.goingCount == resource.data.get('goingCount', 0) - 1));
       match /rsvps/{uid} {
         allow read: if isSignedIn();
         allow write: if isSelf(uid) || isAdmin();

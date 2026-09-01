@@ -230,14 +230,13 @@ export default function EventsScreen() {
     return () => { cancelled = true; };
   }, [selectedEvent, role]);
 
-  // ---- RSVP (confirm, then permanently locked) ----
+  // ---- RSVP (create or change; allowed while RSVP is open) ----
   const handleRsvp = (event, newStatus) => {
-    if (event.myStatus) return; // already locked
-
     if (!rsvpOpen(event)) {
       showBanner('error', 'RSVP has closed for this event.');
       return;
     }
+    if (event.myStatus === newStatus) return; // already this — nothing to change
 
     const threshold = event.eligibilityThreshold || 80;
     if (event.requiresEligibility && newStatus === 'going' && (!eligibility || eligibility.pct < threshold)) {
@@ -245,23 +244,28 @@ export default function EventsScreen() {
       return;
     }
 
+    const changing = !!event.myStatus;
+    const verb = newStatus === 'going' ? 'Going' : "Can't make it";
     Alert.alert(
-      'Confirm RSVP',
-      newStatus === 'going'
-        ? `Mark yourself as Going to "${displayTitle(event, role)}"?\n\nThis can't be changed later.`
-        : `Mark yourself as Can't make it for "${displayTitle(event, role)}"?\n\nThis can't be changed later.`,
+      changing ? 'Change RSVP' : 'Confirm RSVP',
+      changing
+        ? `Change your RSVP to "${verb}" for "${displayTitle(event, role)}"?`
+        : `Mark yourself as "${verb}" for "${displayTitle(event, role)}"?`,
       [
         { text: 'Cancel', style: 'cancel' },
-        { text: 'Confirm', onPress: () => commitRsvp(event, newStatus) },
+        { text: changing ? 'Change' : 'Confirm', onPress: () => commitRsvp(event, newStatus) },
       ]
     );
   };
 
   const commitRsvp = async (event, newStatus) => {
     const uid = auth.currentUser.uid;
+    const oldStatus = event.myStatus || null;
+    if (oldStatus === newStatus) return;
+    const optimisticDelta = (newStatus === 'going' ? 1 : 0) - (oldStatus === 'going' ? 1 : 0);
     const bump = (e) =>
       e && e.id === event.id
-        ? { ...e, myStatus: newStatus, goingCount: e.goingCount + (newStatus === 'going' ? 1 : 0) }
+        ? { ...e, myStatus: newStatus, goingCount: Math.max(0, (e.goingCount || 0) + optimisticDelta) }
         : e;
 
     // Optimistic UI (list + open detail).
@@ -273,9 +277,13 @@ export default function EventsScreen() {
       const rsvpRef = doc(db, 'events', event.id, 'rsvps', uid);
       await runTransaction(db, async (tx) => {
         const rsvpSnap = await tx.get(rsvpRef);
-        if (rsvpSnap.exists() && rsvpSnap.data().status) return; // already locked server-side
+        const cur = rsvpSnap.exists() ? (rsvpSnap.data().status || null) : null;
+        if (cur === newStatus) return; // nothing to change
+        // goingCount moves by the real delta between the server's current answer
+        // and the new one (+1 join, -1 leave, 0 otherwise).
+        const delta = (newStatus === 'going' ? 1 : 0) - (cur === 'going' ? 1 : 0);
         tx.set(rsvpRef, { status: newStatus, fullname, updatedAt: serverTimestamp() }, { merge: true });
-        if (newStatus === 'going') tx.update(eventRef, { goingCount: increment(1) });
+        if (delta !== 0) tx.update(eventRef, { goingCount: increment(delta) });
       });
     } catch (err) {
       console.error('RSVP failed:', err);
@@ -516,6 +524,14 @@ export default function EventsScreen() {
     const canGo = !gated || (eligibility && eligibility.pct >= threshold);
     const dp = item.hasDate ? dateParts(item.startsMs) : null;
     const cd = countdown(item.startsMs, item.hasDate);
+    const myChip = item.myStatus ? (
+      <View style={[styles.statusChip, { backgroundColor: item.myStatus === 'going' ? colors.successSoft : colors.dangerSoft }]}>
+        <Icon name={item.myStatus === 'going' ? 'checkmark-circle' : 'close-circle'} size={14} color={item.myStatus === 'going' ? colors.successDark : colors.danger} />
+        <Text style={[styles.statusChipText, { color: item.myStatus === 'going' ? colors.successDark : colors.danger }]}>
+          {item.myStatus === 'going' ? "You're going" : "Can't make it"}
+        </Text>
+      </View>
+    ) : null;
 
     return (
       <Animatable.View animation="fadeInUp" duration={400} delay={Math.min(index * 60, 300)}>
@@ -580,6 +596,9 @@ export default function EventsScreen() {
                 <Icon name="people" size={15} color={colors.primary} />
                 <Text style={styles.goingCount}>{item.goingCount} going</Text>
               </View>
+            ) : (item.myStatus && !isPast && rsvpOpen(item)) ? (
+              // RSVP'd + still open: chip on the left, "Tap to change" on the right.
+              myChip
             ) : (
               <View />
             )}
@@ -607,26 +626,12 @@ export default function EventsScreen() {
             ) : isPast ? (
               <Text style={styles.pastLabel}>Ended</Text>
             ) : item.myStatus ? (
-              <View
-                style={[
-                  styles.statusChip,
-                  { backgroundColor: item.myStatus === 'going' ? colors.successSoft : colors.dangerSoft },
-                ]}
-              >
-                <Icon
-                  name={item.myStatus === 'going' ? 'checkmark-circle' : 'close-circle'}
-                  size={14}
-                  color={item.myStatus === 'going' ? colors.successDark : colors.danger}
-                />
-                <Text
-                  style={[
-                    styles.statusChipText,
-                    { color: item.myStatus === 'going' ? colors.successDark : colors.danger },
-                  ]}
-                >
-                  {item.myStatus === 'going' ? "You're going" : "Can't make it"}
-                </Text>
-              </View>
+              // Open: chip is on the left, hint on the right. Closed: chip locks here.
+              rsvpOpen(item) ? (
+                <Text style={styles.tapHint}>Tap to change →</Text>
+              ) : (
+                myChip
+              )
             ) : !rsvpOpen(item) ? (
               <Text style={styles.pastLabel}>RSVP closed</Text>
             ) : gated && !canGo ? (
@@ -946,65 +951,67 @@ export default function EventsScreen() {
               </View>
             ) : isPast ? (
               <Text style={styles.detailNote}>This event has ended.</Text>
-            ) : ev.myStatus ? (
-              <View style={styles.lockedRow}>
-                <View
-                  style={[
-                    styles.statusChip,
-                    { backgroundColor: ev.myStatus === 'going' ? colors.successSoft : colors.dangerSoft },
-                  ]}
-                >
-                  <Icon
-                    name={ev.myStatus === 'going' ? 'checkmark-circle' : 'close-circle'}
-                    size={16}
-                    color={ev.myStatus === 'going' ? colors.successDark : colors.danger}
-                  />
-                  <Text
+            ) : !rsvpOpen(ev) ? (
+              ev.myStatus ? (
+                <View style={styles.lockedRow}>
+                  <View
                     style={[
-                      styles.statusChipText,
-                      { color: ev.myStatus === 'going' ? colors.successDark : colors.danger },
+                      styles.statusChip,
+                      { backgroundColor: ev.myStatus === 'going' ? colors.successSoft : colors.dangerSoft },
                     ]}
                   >
-                    {ev.myStatus === 'going' ? "You're going" : "Can't make it"}
+                    <Icon
+                      name={ev.myStatus === 'going' ? 'checkmark-circle' : 'close-circle'}
+                      size={16}
+                      color={ev.myStatus === 'going' ? colors.successDark : colors.danger}
+                    />
+                    <Text
+                      style={[
+                        styles.statusChipText,
+                        { color: ev.myStatus === 'going' ? colors.successDark : colors.danger },
+                      ]}
+                    >
+                      {ev.myStatus === 'going' ? "You're going" : "Can't make it"}
+                    </Text>
+                  </View>
+                  <Text style={styles.lockedHint}>
+                    <Icon name="lock-closed" size={11} color={colors.textMuted} /> RSVP closed
                   </Text>
                 </View>
-                <Text style={styles.lockedHint}>
-                  <Icon name="lock-closed" size={11} color={colors.textMuted} /> RSVP locked
-                </Text>
-              </View>
-            ) : !rsvpOpen(ev) ? (
-              <Text style={styles.detailNote}>RSVP has closed for this event.</Text>
+              ) : (
+                <Text style={styles.detailNote}>RSVP has closed for this event.</Text>
+              )
             ) : (
               <>
-                <Text style={styles.rsvpPrompt}>Will you be there?</Text>
+                <Text style={styles.rsvpPrompt}>{ev.myStatus ? 'Your RSVP — tap to change' : 'Will you be there?'}</Text>
                 {!!ev.rsvpDeadlineMs && (
                   <Text style={styles.deadlineHint}>RSVP closes {fmtDeadline(ev.rsvpDeadlineMs)}</Text>
                 )}
                 <View style={styles.detailRsvpRow}>
                   <Pressable
                     onPress={() => handleRsvp(ev, 'going')}
-                    disabled={!canGo}
-                    style={[styles.detailRsvpBtn, styles.detailGoing, !canGo && styles.rsvpDisabled]}
+                    disabled={!canGo && ev.myStatus !== 'going'}
+                    style={[styles.detailRsvpBtn, styles.detailGoing, ev.myStatus === 'going' && styles.detailRsvpSelected, (!canGo && ev.myStatus !== 'going') && styles.rsvpDisabled]}
                   >
-                    <Icon name="checkmark-circle-outline" size={18} color={canGo ? colors.successDark : colors.textMuted} />
-                    <Text style={[styles.detailRsvpText, { color: canGo ? colors.successDark : colors.textMuted }]}>
+                    <Icon name={ev.myStatus === 'going' ? 'checkmark-circle' : 'checkmark-circle-outline'} size={18} color={(canGo || ev.myStatus === 'going') ? colors.successDark : colors.textMuted} />
+                    <Text style={[styles.detailRsvpText, { color: (canGo || ev.myStatus === 'going') ? colors.successDark : colors.textMuted }]}>
                       Going
                     </Text>
                   </Pressable>
                   <Pressable
                     onPress={() => handleRsvp(ev, 'declined')}
-                    style={[styles.detailRsvpBtn, styles.detailDeclined]}
+                    style={[styles.detailRsvpBtn, styles.detailDeclined, ev.myStatus === 'declined' && styles.detailRsvpSelected]}
                   >
-                    <Icon name="close-circle-outline" size={18} color={colors.danger} />
+                    <Icon name={ev.myStatus === 'declined' ? 'close-circle' : 'close-circle-outline'} size={18} color={colors.danger} />
                     <Text style={[styles.detailRsvpText, { color: colors.danger }]}>Can't make it</Text>
                   </Pressable>
                 </View>
-                {gated && !canGo && (
+                {gated && !canGo && ev.myStatus !== 'going' && (
                   <Text style={styles.gateHintDetail}>
                     You need {threshold}% attendance to RSVP "Going" for this event.
                   </Text>
                 )}
-                <Text style={styles.lockedHint}>Your choice is final once confirmed.</Text>
+                <Text style={styles.lockedHint}>You can change your RSVP any time until it closes.</Text>
               </>
             )}
           </View>
@@ -1399,6 +1406,7 @@ const styles = StyleSheet.create({
   },
   detailGoing: { borderColor: colors.success, backgroundColor: colors.successSoft },
   detailDeclined: { borderColor: colors.danger, backgroundColor: colors.dangerSoft },
+  detailRsvpSelected: { borderWidth: 3, ...shadows.sm },  // current choice highlighted
   detailRsvpText: { fontSize: 15, fontFamily: fonts.semibold },
   gateHintDetail: {
     fontSize: 12.5,
